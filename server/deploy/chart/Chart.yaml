@@ -1,0 +1,6 @@
+apiVersion: v2
+name: security-radar
+description: FederationCoin security radar NestJS API and collector CronJob
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

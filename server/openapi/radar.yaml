@@ -1,0 +1,714 @@
+openapi: 3.0.3
+info:
+  title: FederationCoin security radar
+  version: 0.1.0
+  description: >
+    Frozen /v1. Public NestJS intel dashboard plus Sparrow-signed
+    maintainer writes. Dummy MAIN is unused. Health is ClusterIP only
+    and is not a public radar page. additionalProperties false.
+    Opaque FindCursor. Distant unacked events are omitted from anonymous GET.
+servers:
+  - url: https://radar-api.federationcoin.org
+    description: Origin hosted API on the shared ALB
+  - url: https://radar.example.com
+    description: Self-hosted instance (CORS origins from SecretStore)
+security: []
+tags:
+  - name: docs
+  - name: intel
+  - name: admin
+paths:
+  /v1/openapi.json:
+    get:
+      tags: [docs]
+      summary: OpenAPI document
+      operationId: getOpenApi
+      responses:
+        "200":
+          description: OpenAPI JSON
+  /v1/docs:
+    get:
+      tags: [docs]
+      summary: API docs UI (Helmet; no internals)
+      operationId: getDocs
+      responses:
+        "200":
+          description: HTML docs
+  /v1/intel/events:
+    get:
+      tags: [intel]
+      summary: Public intel events (unacked distant omitted)
+      operationId: listPublicEvents
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Page of public events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventPage"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/intel/events/{id}:
+    get:
+      tags: [intel]
+      summary: One public event; unacked distant is 404
+      operationId: getPublicEvent
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicEvent"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/intel/bips:
+    get:
+      tags: [intel]
+      summary: BIP catalog
+      operationId: listBips
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+      responses:
+        "200":
+          description: BIPs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BipPage"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/intel/quantum-clock:
+    get:
+      tags: [intel]
+      summary: Configured PQ clock
+      operationId: getQuantumClock
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+      responses:
+        "200":
+          description: Clock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuantumClock"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/intel/tasks:
+    get:
+      tags: [intel]
+      summary: Public tasks (no embargoed copy)
+      operationId: listTasks
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+      responses:
+        "200":
+          description: Tasks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskPage"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /v1/intel/distant-unacked:
+    get:
+      tags: [intel]
+      summary: Maintainer-only unacked distant feeds
+      operationId: listUnackedDistant
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+        - $ref: "#/components/parameters/Authorization"
+      responses:
+        "200":
+          description: Unacked distant events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventPage"
+        "401":
+          $ref: "#/components/responses/Problem"
+  /v1/tasks/accept:
+    post:
+      tags: [admin]
+      summary: AcceptTask
+      operationId: acceptTask
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+        - $ref: "#/components/parameters/Authorization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptTask"
+      responses:
+        "200":
+          description: Accepted
+        "401":
+          $ref: "#/components/responses/Problem"
+  /v1/tasks/complete:
+    post:
+      tags: [admin]
+      summary: CompleteTask
+      operationId: completeTask
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+        - $ref: "#/components/parameters/Authorization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteTask"
+      responses:
+        "200":
+          description: Completed
+        "401":
+          $ref: "#/components/responses/Problem"
+  /v1/bips/review:
+    post:
+      tags: [admin]
+      summary: ReviewBip
+      operationId: reviewBip
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+        - $ref: "#/components/parameters/Authorization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewBip"
+      responses:
+        "200":
+          description: Reviewed
+        "401":
+          $ref: "#/components/responses/Problem"
+  /v1/feeds/ack:
+    post:
+      tags: [admin]
+      summary: AckDistantFeed
+      operationId: ackDistantFeed
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+        - $ref: "#/components/parameters/Authorization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AckDistantFeed"
+      responses:
+        "200":
+          description: Acked
+        "401":
+          $ref: "#/components/responses/Problem"
+  /v1/scan-contexts:
+    post:
+      tags: [admin]
+      summary: CreateScanContext
+      operationId: createScanContext
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+        - $ref: "#/components/parameters/Authorization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScanContext"
+      responses:
+        "201":
+          description: Created
+        "401":
+          $ref: "#/components/responses/Problem"
+  /v1/assessments/human:
+    post:
+      tags: [admin]
+      summary: RecordHumanAssessment
+      operationId: recordHumanAssessment
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+        - $ref: "#/components/parameters/Authorization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordHumanAssessment"
+      responses:
+        "200":
+          description: Recorded
+        "401":
+          $ref: "#/components/responses/Problem"
+  /v1/assessments/no-fork:
+    post:
+      tags: [admin]
+      summary: RecordNoForkAssessment
+      operationId: recordNoForkAssessment
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+        - $ref: "#/components/parameters/Authorization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordNoForkAssessment"
+      responses:
+        "200":
+          description: Recorded
+        "401":
+          $ref: "#/components/responses/Problem"
+  /v1/assessments/soft-fork:
+    post:
+      tags: [admin]
+      summary: RecordSoftForkAssessment
+      operationId: recordSoftForkAssessment
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+        - $ref: "#/components/parameters/Authorization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordSoftForkAssessment"
+      responses:
+        "200":
+          description: Recorded
+        "401":
+          $ref: "#/components/responses/Problem"
+  /v1/assessments/hard-fork:
+    post:
+      tags: [admin]
+      summary: RecordHardForkAssessment
+      operationId: recordHardForkAssessment
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+        - $ref: "#/components/parameters/Authorization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordHardForkAssessment"
+      responses:
+        "200":
+          description: Recorded
+        "401":
+          $ref: "#/components/responses/Problem"
+components:
+  parameters:
+    ChainHeader:
+      name: X-FederationCoin-Chain
+      in: header
+      required: true
+      schema:
+        type: string
+        enum: [testnet, main]
+    Authorization:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+        description: Bearer base64url SigningEnvelope JSON
+  responses:
+    Problem:
+      description: application/problem+json
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    RateLimited:
+      description: Too many anonymous reads
+      headers:
+        Retry-After:
+          schema:
+            type: string
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        detail:
+          type: string
+    EventPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicEvent"
+        cursor:
+          type: string
+    BipPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Bip"
+    TaskPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+    PublicEvent:
+      oneOf:
+        - $ref: "#/components/schemas/DependencyVulnEvent"
+        - $ref: "#/components/schemas/MissingScanContextEvent"
+        - $ref: "#/components/schemas/MissingOrgRepoEvent"
+        - $ref: "#/components/schemas/MissingDepScanEvent"
+        - $ref: "#/components/schemas/UpstreamMainlineEvent"
+        - $ref: "#/components/schemas/BipArrivedEvent"
+        - $ref: "#/components/schemas/StaleUpstreamEvent"
+        - $ref: "#/components/schemas/DistantFeedEvent"
+    DependencyVulnEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, createdAt, scanContextId, packageIdentity, vulnKey, present, taskComplete, buckets]
+      properties:
+        type:
+          type: string
+          enum: [DependencyVulnEvent]
+        id:
+          type: string
+        createdAt:
+          type: string
+        scanContextId:
+          type: string
+        packageIdentity:
+          type: string
+        vulnKey:
+          type: string
+        present:
+          type: boolean
+        taskComplete:
+          type: boolean
+        buckets:
+          type: array
+          items:
+            type: string
+    MissingScanContextEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, createdAt, githubOwnerName, present, buckets]
+      properties:
+        type:
+          type: string
+          enum: [MissingScanContextEvent]
+        id:
+          type: string
+        createdAt:
+          type: string
+        githubOwnerName:
+          type: string
+        present:
+          type: boolean
+        buckets:
+          type: array
+          items:
+            type: string
+    MissingOrgRepoEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, createdAt, scanContextId, missingName, present, buckets]
+      properties:
+        type:
+          type: string
+          enum: [MissingOrgRepoEvent]
+        id:
+          type: string
+        createdAt:
+          type: string
+        scanContextId:
+          type: string
+        missingName:
+          type: string
+        present:
+          type: boolean
+        buckets:
+          type: array
+          items:
+            type: string
+    MissingDepScanEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, createdAt, scanContextId, buckets]
+      properties:
+        type:
+          type: string
+          enum: [MissingDepScanEvent]
+        id:
+          type: string
+        createdAt:
+          type: string
+        scanContextId:
+          type: string
+        buckets:
+          type: array
+          items:
+            type: string
+    UpstreamMainlineEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, createdAt, scanContextId, upstreamId, commit, title, buckets]
+      properties:
+        type:
+          type: string
+          enum: [UpstreamMainlineEvent]
+        id:
+          type: string
+        createdAt:
+          type: string
+        scanContextId:
+          type: string
+        upstreamId:
+          type: string
+        commit:
+          type: string
+        title:
+          type: string
+        buckets:
+          type: array
+          items:
+            type: string
+    BipArrivedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, createdAt, bipId, buckets]
+      properties:
+        type:
+          type: string
+          enum: [BipArrivedEvent]
+        id:
+          type: string
+        createdAt:
+          type: string
+        bipId:
+          type: string
+        buckets:
+          type: array
+          items:
+            type: string
+    StaleUpstreamEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, createdAt, upstreamId, buckets]
+      properties:
+        type:
+          type: string
+          enum: [StaleUpstreamEvent]
+        id:
+          type: string
+        createdAt:
+          type: string
+        upstreamId:
+          type: string
+        buckets:
+          type: array
+          items:
+            type: string
+    DistantFeedEvent:
+      type: object
+      additionalProperties: false
+      required: [type, id, createdAt, feedSourceId, sourceNativeId, title, summary, acked, buckets]
+      properties:
+        type:
+          type: string
+          enum: [DistantFeedEvent]
+        id:
+          type: string
+        createdAt:
+          type: string
+        feedSourceId:
+          type: string
+        sourceNativeId:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        acked:
+          type: boolean
+        buckets:
+          type: array
+          items:
+            type: string
+    Bip:
+      type: object
+      additionalProperties: false
+      required: [id, number, title, summary]
+      properties:
+        id:
+          type: string
+        number:
+          type: integer
+        title:
+          type: string
+        summary:
+          type: string
+        whatItDoes:
+          type: string
+        howItHitsUs:
+          type: string
+        honorNotes:
+          type: string
+        ethosNotes:
+          type: string
+    QuantumClock:
+      type: object
+      additionalProperties: false
+      required: [id, summary, milestones]
+      properties:
+        id:
+          type: string
+        summary:
+          type: string
+        milestones:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuantumMilestone"
+    QuantumMilestone:
+      type: object
+      additionalProperties: false
+      required: [id, at, label]
+      properties:
+        id:
+          type: string
+        at:
+          type: string
+        label:
+          type: string
+    Task:
+      type: object
+      additionalProperties: false
+      required: [id, title, complete]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        complete:
+          type: boolean
+        eventId:
+          type: string
+    AcceptTask:
+      type: object
+      additionalProperties: false
+      required: [taskId]
+      properties:
+        taskId:
+          type: string
+    CompleteTask:
+      type: object
+      additionalProperties: false
+      required: [taskId]
+      properties:
+        taskId:
+          type: string
+    ReviewBip:
+      type: object
+      additionalProperties: false
+      required: [bipId, notes]
+      properties:
+        bipId:
+          type: string
+        notes:
+          type: string
+    AckDistantFeed:
+      type: object
+      additionalProperties: false
+      required: [eventId]
+      properties:
+        eventId:
+          type: string
+    CreateScanContext:
+      type: object
+      additionalProperties: false
+      required: [name, githubOwner, githubName]
+      properties:
+        name:
+          type: string
+        githubOwner:
+          type: string
+        githubName:
+          type: string
+    RecordHumanAssessment:
+      type: object
+      additionalProperties: false
+      required: [eventId, writeup]
+      properties:
+        eventId:
+          type: string
+        writeup:
+          type: string
+    RecordNoForkAssessment:
+      type: object
+      additionalProperties: false
+      required: [eventId, writeup]
+      properties:
+        eventId:
+          type: string
+        writeup:
+          type: string
+    RecordSoftForkAssessment:
+      type: object
+      additionalProperties: false
+      required: [eventId, writeup]
+      properties:
+        eventId:
+          type: string
+        writeup:
+          type: string
+    RecordHardForkAssessment:
+      type: object
+      additionalProperties: false
+      required: [eventId, writeup]
+      properties:
+        eventId:
+          type: string
+        writeup:
+          type: string

@@ -1,0 +1,16 @@
+{
+  "maria": {
+    "host": "ops-mysql",
+    "user": "radar",
+    "password": "",
+    "database": "radar"
+  },
+  "githubPat": { "token": "" },
+  "xBearer": "",
+  "xHandles": ["Calle"],
+  "nvdApiKey": "",
+  "nostrNpubs": [],
+  "nostrRelays": [],
+  "rssUrls": [],
+  "orgRepos": []
+}

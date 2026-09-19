@@ -1,0 +1,18 @@
+{
+  "maria": {
+    "host": "ops-mysql",
+    "user": "radar",
+    "password": "",
+    "database": "radar"
+  },
+  "chainRpc": {
+    "testnet": {
+      "hosts": [],
+      "username": "",
+      "password": ""
+    }
+  },
+  "corsOrigins": ["https://radar.federationcoin.org"],
+  "trustedProxyHops": 1,
+  "maintainerAllowlist": []
+}

@@ -1,0 +1,8 @@
+server/node_modules/
+server/dist/
+server/coverage/
+ui/node_modules/
+ui/dist/
+ui/.angular/
+ui/coverage/
+*.log

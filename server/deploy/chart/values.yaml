@@ -1,0 +1,27 @@
+# Overlay from the parent dump supplies registry (ECR host) via --set.
+# Do not put account ids or DSNs here.
+replicaCount: 1
+registry: ""
+image:
+  repository: federationcoin-radar
+  tag: testnet-latest
+  pullPolicy: Always
+host: radar-api.federationcoin.org
+ingress:
+  group: federationcoin-https
+certificateArn: ""
+wafAclArn: ""
+serviceAccount:
+  create: false
+  name: federationcoin-radar
+collectorServiceAccount:
+  create: false
+  name: federationcoin-radar-collector
+secret:
+  name: federationcoin-radar-api
+  fileKey: settings.json
+collectorSecret:
+  name: federationcoin-radar-collector
+  fileKey: settings.json
+port: 8080
+schedule: "0 * * * *"

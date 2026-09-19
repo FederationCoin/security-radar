@@ -1,0 +1,56 @@
+{
+  "name": "security-radar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FederationCoin security radar NestJS API and collector. Not pool-registry.",
+  "author": "FederationCoin",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "npm@11.19.1",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "start:collector": "node dist/collector.main.js",
+    "start:dev": "tsx src/main.ts",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "audit": "npm audit --audit-level=high"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.901.0",
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/core": "^11.1.6",
+    "@nestjs/platform-express": "^11.1.6",
+    "@noble/hashes": "^1.8.0",
+    "@noble/secp256k1": "^2.3.0",
+    "bech32": "^2.0.0",
+    "canonicalize": "^2.1.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "helmet": "^8.1.0",
+    "js-yaml": "^4.1.0",
+    "mysql2": "^3.15.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "overrides": {
+    "multer": "2.4.0"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.1.6",
+    "@swc/core": "^1.16.2",
+    "@types/express": "^5.0.3",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^24.13.4",
+    "@types/supertest": "^6.0.3",
+    "@vitest/coverage-v8": "^3.2.4",
+    "supertest": "^7.1.4",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.3",
+    "unplugin-swc": "^1.6.0",
+    "vitest": "^3.2.4"
+  }
+}

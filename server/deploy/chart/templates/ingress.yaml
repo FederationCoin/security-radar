@@ -1,0 +1,81 @@
+{{- if not .Values.certificateArn }}
+{{- fail "certificateArn is required for the radar Ingress (shared API ALB)" }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: radar
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.certificateArn | quote }}
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.group | quote }}
+    alb.ingress.kubernetes.io/healthcheck-path: /v1/healthz
+    alb.ingress.kubernetes.io/success-codes: "200"
+    {{- if .Values.wafAclArn }}
+    alb.ingress.kubernetes.io/wafv2-acl-arn: {{ .Values.wafAclArn | quote }}
+    {{- end }}
+spec:
+  ingressClassName: alb
+  rules:
+    - host: {{ .Values.host | quote }}
+      http:
+        paths:
+          - path: /v1/intel
+            pathType: Prefix
+            backend:
+              service:
+                name: radar
+                port:
+                  number: 80
+          - path: /v1/tasks
+            pathType: Prefix
+            backend:
+              service:
+                name: radar
+                port:
+                  number: 80
+          - path: /v1/bips
+            pathType: Prefix
+            backend:
+              service:
+                name: radar
+                port:
+                  number: 80
+          - path: /v1/feeds
+            pathType: Prefix
+            backend:
+              service:
+                name: radar
+                port:
+                  number: 80
+          - path: /v1/scan-contexts
+            pathType: Prefix
+            backend:
+              service:
+                name: radar
+                port:
+                  number: 80
+          - path: /v1/assessments
+            pathType: Prefix
+            backend:
+              service:
+                name: radar
+                port:
+                  number: 80
+          - path: /v1/openapi.json
+            pathType: Exact
+            backend:
+              service:
+                name: radar
+                port:
+                  number: 80
+          - path: /v1/docs
+            pathType: Exact
+            backend:
+              service:
+                name: radar
+                port:
+                  number: 80

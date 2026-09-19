@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - get-to-mainnet
+  pull_request:
+    branches:
+      - get-to-mainnet
+      - main
+      - federationcoin
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+        working-directory: server
+      - run: npm test
+        working-directory: server
+      - run: npm run build
+        working-directory: server
+
+  test-ui:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+        working-directory: ui
+      - run: npm test
+        working-directory: ui
+      - run: npm run build
+        working-directory: ui
+
+  audit:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+        working-directory: server
+      - run: npm audit --audit-level=high
+        working-directory: server
+      - run: npm ci
+        working-directory: ui
+      - run: npm audit --audit-level=high
+        working-directory: ui
+
+  contract:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: OpenAPI breaking vs mainline
+        if: github.event_name == 'pull_request'
+        id: spec
+        run: |
+          set -eu
+          if git cat-file -e "origin/${{ github.base_ref }}:server/openapi/radar.yaml" 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "no mainline spec yet; skip"
+          fi
+      - name: oasdiff breaking
+        if: github.event_name == 'pull_request' && steps.spec.outputs.exists == 'true'
+        uses: oasdiff/oasdiff-action/breaking@main
+        with:
+          base: origin/${{ github.base_ref }}/server/openapi/radar.yaml
+          revision: server/openapi/radar.yaml
+          fail-on-diff: true

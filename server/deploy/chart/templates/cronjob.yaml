@@ -1,0 +1,52 @@
+{{- $reg := required "registry is required (helm --set registry=...; do not commit it)" .Values.registry }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: radar-collector
+  labels:
+    app: federationcoin-radar-collector
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: federationcoin-radar-collector
+        spec:
+          serviceAccountName: {{ .Values.collectorServiceAccount.name }}
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            fsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: collector
+              image: {{ $reg }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["node", "dist/collector.main.js"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              env:
+                - name: RADAR_COLLECTOR_SETTINGS_FILE
+                  value: /var/run/secrets/radar-collector/{{ .Values.collectorSecret.fileKey }}
+              volumeMounts:
+                - name: collector-settings
+                  mountPath: /var/run/secrets/radar-collector
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: collector-settings
+              secret:
+                secretName: {{ .Values.collectorSecret.name }}
+            - name: tmp
+              emptyDir: {}
