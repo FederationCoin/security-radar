@@ -1,32 +1,72 @@
 import { Component, inject, signal } from '@angular/core';
-import { RadarApi } from '../radar.api';
+import { MatCard, MatCardContent, MatCardHeader, MatCardTitle } from '@angular/material/card';
+import { MatButton } from '@angular/material/button';
+import { RadarApi, type RadarTask } from '../radar.api';
+import { CountBarsComponent } from '../count-bars';
+import { taskCounts } from '../kind-label';
 
 @Component({
   selector: 'app-tasks',
+  imports: [MatCard, MatCardHeader, MatCardTitle, MatCardContent, MatButton, CountBarsComponent],
   template: `
     <h1>Tasks</h1>
     <p>Complete does not clear a vuln flag.</p>
-    @if (error()) {
+    @if (loading()) {
+      <p>Loading…</p>
+    }
+    @if (!loading() && error()) {
       <p class="toast">{{ error() }}</p>
     }
-    @if (tasks().length === 0 && !error()) {
+    @if (!loading() && tasks().length === 0 && !error()) {
       <p>No tasks.</p>
     }
-    <ul>
+    @if (!loading() && !error()) {
+      <app-count-bars [rows]="counts()" caption="Open versus done" />
+    }
+    <div class="card-grid">
       @for (t of tasks(); track t.id) {
-        <li>{{ t.title }} {{ t.complete ? '(done)' : '' }}</li>
+        <mat-card>
+          <mat-card-header>
+            <mat-card-title>{{ t.title }}</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            @if (t.complete) {
+              <p>Done</p>
+            }
+            @if (api.signedIn() && !t.complete) {
+              <div class="maintainer-panel">
+                <button mat-button type="button" (click)="accept(t.id)">Accept</button>
+                <button mat-flat-button type="button" (click)="complete(t.id)">Complete</button>
+              </div>
+            }
+          </mat-card-content>
+        </mat-card>
       }
-    </ul>
+    </div>
   `,
 })
 export class TasksPage {
-  private readonly api = inject(RadarApi);
-  readonly tasks = signal<Array<{ id: string; title: string; complete: boolean }>>([]);
+  readonly api = inject(RadarApi);
+  readonly tasks = signal<RadarTask[]>([]);
   readonly error = signal('');
+  readonly loading = signal(true);
   constructor() {
     void this.api
       .listTasks()
       .then((items) => this.tasks.set(items))
-      .catch(() => this.error.set('Could not load tasks.'));
+      .catch(() => this.error.set('Could not load tasks.'))
+      .finally(() => this.loading.set(false));
+  }
+
+  counts() {
+    return taskCounts(this.tasks());
+  }
+
+  accept(taskId: string): void {
+    void this.api.acceptTask(taskId);
+  }
+
+  complete(taskId: string): void {
+    void this.api.completeTask(taskId);
   }
 }

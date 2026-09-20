@@ -34,15 +34,12 @@ spec:
           env:
             - name: PORT
               value: {{ .Values.port | quote }}
-            - name: RADAR_SETTINGS_FILE
-              value: /var/run/secrets/radar/{{ .Values.secret.fileKey }}
+            - name: RADAR_SECRET_NAME
+              value: {{ .Values.secret.name | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.port }}
           volumeMounts:
-            - name: settings
-              mountPath: /var/run/secrets/radar
-              readOnly: true
             - name: tmp
               mountPath: /tmp
           livenessProbe:
@@ -60,9 +57,6 @@ spec:
             limits:
               memory: 512Mi
       volumes:
-        - name: settings
-          secret:
-            secretName: {{ .Values.secret.name }}
         - name: tmp
           emptyDir: {}
 ---

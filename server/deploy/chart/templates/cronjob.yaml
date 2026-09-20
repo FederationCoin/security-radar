@@ -36,17 +36,11 @@ spec:
                 capabilities:
                   drop: ["ALL"]
               env:
-                - name: RADAR_COLLECTOR_SETTINGS_FILE
-                  value: /var/run/secrets/radar-collector/{{ .Values.collectorSecret.fileKey }}
+                - name: RADAR_COLLECTOR_SECRET_NAME
+                  value: {{ .Values.collectorSecret.name | quote }}
               volumeMounts:
-                - name: collector-settings
-                  mountPath: /var/run/secrets/radar-collector
-                  readOnly: true
                 - name: tmp
                   mountPath: /tmp
           volumes:
-            - name: collector-settings
-              secret:
-                secretName: {{ .Values.collectorSecret.name }}
             - name: tmp
               emptyDir: {}

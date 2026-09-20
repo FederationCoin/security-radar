@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import mysql from 'mysql2/promise';
 import { FindPageSize } from '../../domain/constants';
+import { honorNotesFromFlags, withEventDisplay } from '../../domain/event-display';
 import { RadarProblem } from '../../domain/types';
 import type {
   BipRow,
@@ -20,6 +21,8 @@ import type {
 } from '../../domain/types';
 import type { IntelStore, OrgRepoObservation } from '../../ports/intel-store';
 import type { MariaSettings } from '../../ports/secret-store';
+
+type SqlBind = Array<string | number | boolean | Date | Buffer | null>;
 
 function nowSql(): string {
   return new Date().toISOString().slice(0, 23).replace('T', ' ');
@@ -83,12 +86,12 @@ export class MysqlIntelStore implements IntelStore {
     return this.pool;
   }
 
-  private async q(sql: string, params: unknown[] = []): Promise<Row[]> {
+  private async q(sql: string, params: SqlBind = []): Promise<Row[]> {
     const [rows] = await this.conn().execute(sql, params);
     return rows as Row[];
   }
 
-  private async exec(sql: string, params: unknown[] = []): Promise<void> {
+  private async exec(sql: string, params: SqlBind = []): Promise<void> {
     await this.conn().execute(sql, params);
   }
 
@@ -273,7 +276,7 @@ export class MysqlIntelStore implements IntelStore {
           row.howItHitsUs ?? null,
           row.honorNotes ?? null,
           row.ethosNotes ?? null,
-          found[0].id,
+          String(found[0].id),
         ],
       );
       return this.bipFromRow({ ...found[0], title: row.title, summary: row.summary });
@@ -304,12 +307,32 @@ export class MysqlIntelStore implements IntelStore {
     return rows[0] ? this.bipFromRow(rows[0]) : undefined;
   }
 
-  async reviewBip(maintainerId: string, bipId: string, notes: string, at: string): Promise<void> {
+  async reviewBip(
+    maintainerId: string,
+    bipId: string,
+    review: {
+      understanding: string;
+      applicability: string;
+      honor?: boolean;
+      implement?: boolean;
+    },
+    at: string,
+  ): Promise<void> {
+    const notes = `${review.understanding}\n\n${review.applicability}`;
     await this.exec(
       `INSERT INTO maintainer_reviews_bip (maintainer_id, bip_id, notes, reviewed_at)
        VALUES (?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE notes = VALUES(notes), reviewed_at = VALUES(reviewed_at)`,
       [maintainerId, bipId, notes, at.slice(0, 23).replace('T', ' ').replace('Z', '')],
+    );
+    await this.exec(
+      `UPDATE bip SET what_it_does = ?, how_it_hits_us = ?, honor_notes = ? WHERE id = ?`,
+      [
+        review.understanding,
+        review.applicability,
+        honorNotesFromFlags(review.honor, review.implement) ?? null,
+        bipId,
+      ],
     );
   }
 
@@ -742,7 +765,7 @@ export class MysqlIntelStore implements IntelStore {
       `SELECT m.id, m.at_label, m.label FROM quantum_milestone m
        INNER JOIN clock_has_milestone x ON x.quantum_milestone_id = m.id
        WHERE x.quantum_clock_id = ?`,
-      [c.id],
+      [String(c.id)],
     );
     return {
       id: String(c.id),
@@ -898,21 +921,21 @@ export class MysqlIntelStore implements IntelStore {
       [id],
     );
     if (mc[0]) {
-      return {
+      return withEventDisplay({
         type: 'MissingScanContextEvent',
         id: String(mc[0].id),
         createdAt: toIso(String(mc[0].created_at)),
         githubOwnerName: String(mc[0].github_owner_name),
         present: await this.missingContextPresent(id),
         buckets,
-      };
+      });
     }
     const mo = await this.q(
       'SELECT id, created_at, scan_context_id, missing_name FROM missing_org_repo_event WHERE id = ?',
       [id],
     );
     if (mo[0]) {
-      return {
+      return withEventDisplay({
         type: 'MissingOrgRepoEvent',
         id: String(mo[0].id),
         createdAt: toIso(String(mo[0].created_at)),
@@ -920,24 +943,24 @@ export class MysqlIntelStore implements IntelStore {
         missingName: String(mo[0].missing_name),
         present: await this.missingRepoPresent(id),
         buckets,
-      };
+      });
     }
     const md = await this.q('SELECT id, created_at, scan_context_id FROM missing_dep_scan_event WHERE id = ?', [id]);
     if (md[0]) {
-      return {
+      return withEventDisplay({
         type: 'MissingDepScanEvent',
         id: String(md[0].id),
         createdAt: toIso(String(md[0].created_at)),
         scanContextId: String(md[0].scan_context_id),
         buckets,
-      };
+      });
     }
     const dv = await this.q(
       'SELECT id, created_at, scan_context_id, package_identity, vuln_key FROM dependency_vuln_event WHERE id = ?',
       [id],
     );
     if (dv[0]) {
-      return {
+      return withEventDisplay({
         type: 'DependencyVulnEvent',
         id: String(dv[0].id),
         createdAt: toIso(String(dv[0].created_at)),
@@ -947,14 +970,14 @@ export class MysqlIntelStore implements IntelStore {
         present: await this.depVulnIsPresent(id),
         taskComplete: await this.taskCompleteForEvent(id),
         buckets,
-      };
+      });
     }
     const um = await this.q(
       'SELECT id, created_at, scan_context_id, upstream_id, commit_sha, title FROM upstream_mainline_event WHERE id = ?',
       [id],
     );
     if (um[0]) {
-      return {
+      return withEventDisplay({
         type: 'UpstreamMainlineEvent',
         id: String(um[0].id),
         createdAt: toIso(String(um[0].created_at)),
@@ -963,34 +986,38 @@ export class MysqlIntelStore implements IntelStore {
         commit: String(um[0].commit_sha),
         title: String(um[0].title),
         buckets,
-      };
+      });
     }
     const ba = await this.q('SELECT id, created_at, bip_id FROM bip_arrived_event WHERE id = ?', [id]);
     if (ba[0]) {
-      return {
+      const bip = await this.getBip(String(ba[0].bip_id));
+      return withEventDisplay({
         type: 'BipArrivedEvent',
         id: String(ba[0].id),
         createdAt: toIso(String(ba[0].created_at)),
         bipId: String(ba[0].bip_id),
+        bipNumber: bip?.number,
+        bipTitle: bip?.title,
+        bipSummary: bip?.summary,
         buckets,
-      };
+      });
     }
     const st = await this.q('SELECT id, created_at, upstream_id FROM stale_upstream_event WHERE id = ?', [id]);
     if (st[0]) {
-      return {
+      return withEventDisplay({
         type: 'StaleUpstreamEvent',
         id: String(st[0].id),
         createdAt: toIso(String(st[0].created_at)),
         upstreamId: String(st[0].upstream_id),
         buckets,
-      };
+      });
     }
     const di = await this.q(
       'SELECT id, created_at, feed_source_id, source_native_id, title, summary FROM distant_feed_event WHERE id = ?',
       [id],
     );
     if (di[0]) {
-      return {
+      return withEventDisplay({
         type: 'DistantFeedEvent',
         id: String(di[0].id),
         createdAt: toIso(String(di[0].created_at)),
@@ -1000,7 +1027,7 @@ export class MysqlIntelStore implements IntelStore {
         summary: String(di[0].summary),
         acked: await this.isDistantAcked(id),
         buckets,
-      };
+      });
     }
     return undefined;
   }

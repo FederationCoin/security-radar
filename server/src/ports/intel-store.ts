@@ -55,7 +55,17 @@ export interface IntelStore {
   listBips(): Promise<BipRow[]>;
   upsertBip(row: Omit<BipRow, 'id'> & { id?: string }): Promise<BipRow>;
   getBip(id: string): Promise<BipRow | undefined>;
-  reviewBip(maintainerId: string, bipId: string, notes: string, at: string): Promise<void>;
+  reviewBip(
+    maintainerId: string,
+    bipId: string,
+    review: {
+      understanding: string;
+      applicability: string;
+      honor?: boolean;
+      implement?: boolean;
+    },
+    at: string,
+  ): Promise<void>;
   bipReviewedBy(bipId: string, maintainerId: string): Promise<boolean>;
 
   insertHourlyScanRun(): Promise<HourlyScanRunRow>;
