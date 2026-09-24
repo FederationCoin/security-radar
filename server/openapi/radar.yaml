@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: FederationCoin security radar
-  version: 0.3.0
+  version: 0.4.0
   description: >
     Frozen /v1. Public NestJS intel dashboard plus Sparrow-signed
     maintainer writes. Dummy MAIN is unused. Health is ClusterIP only
@@ -18,6 +18,34 @@ tags:
   - name: intel
   - name: admin
 paths:
+  /v1/sign-context:
+    get:
+      tags: [docs]
+      summary: Last mined block and the exact maintainer message to sign
+      operationId: getSignContext
+      parameters:
+        - $ref: "#/components/parameters/ChainHeader"
+      responses:
+        "200":
+          description: Tip, server time, and canonical message
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [signingBlockHeight, signingBlockHash, issuedAt, message, payloadHash]
+                properties:
+                  signingBlockHeight:
+                    type: integer
+                  signingBlockHash:
+                    type: string
+                  issuedAt:
+                    type: string
+                    format: date-time
+                  message:
+                    type: string
+                  payloadHash:
+                    type: string
   /v1/openapi.json:
     get:
       tags: [docs]

@@ -22,6 +22,7 @@ export function defaultApiSettings(): ApiSettings {
     corsOrigins: ['https://radar.federationcoin.org', 'http://localhost:4200'],
     trustedProxyHops: 1,
     maintainerAllowlist: [],
+    sessionMaxBlockDepth: 48,
   };
 }
 

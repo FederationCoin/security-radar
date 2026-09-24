@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { hmac } from '@noble/hashes/hmac';
 import { sha256 } from '@noble/hashes/sha2';
 import * as secp from '@noble/secp256k1';
-import { signedPayloadHash } from './jcs';
+import { sessionMessage, sessionPayloadHash } from './jcs';
 import { assertEnvelope, decodeCompactSig, signedMessageHash, sparrowMessageHash, verifyEnvelopeSignature } from './envelope';
 import { signEnvelope, testKey } from '../test-support';
 import { BitcoinSignedMessageMagic } from './constants';
@@ -17,44 +17,44 @@ secp.etc.hmacSha256Sync = (k, ...msgs) => {
 };
 
 describe('envelope', () => {
-  it('verifies a Sparrow compact signature over payloadHash', () => {
+  it('verifies a Sparrow compact signature over the session message', () => {
     const { priv, wallet } = testKey();
-    const command = { taskId: '01HZX' };
+    const issuedAt = '2026-09-24T00:00:00.000Z';
     const env = signEnvelope({
       priv,
       wallet,
       chain: 'testnet',
-      commandKind: 'acceptTask',
-      command,
       signingBlockHash: 'ab'.repeat(32),
       signingBlockHeight: 1,
+      issuedAt,
     });
-    expect(env.payloadHash).toBe(signedPayloadHash(command, 1, 'ab'.repeat(32)));
-    expect(() => assertEnvelope(env, 'testnet', 'acceptTask', command)).not.toThrow();
+    expect(env.payloadHash).toBe(
+      sessionPayloadHash({ chain: 'testnet', signingBlockHeight: 1, signingBlockHash: 'ab'.repeat(32), issuedAt }),
+    );
+    expect(() => assertEnvelope(env, 'testnet')).not.toThrow();
   });
 
   it('binds signing height and hash into the payload hash', () => {
-    const command = { taskId: '01HZX' };
+    const issuedAt = '2026-09-24T00:00:00.000Z';
     const hash = 'ab'.repeat(32);
-    expect(signedPayloadHash(command, 1, hash)).not.toBe(signedPayloadHash(command, 2, hash));
-    expect(signedPayloadHash(command, 1, hash)).not.toBe(signedPayloadHash(command, 1, 'cd'.repeat(32)));
+    const base = { chain: 'testnet', signingBlockHash: hash, issuedAt };
+    expect(sessionPayloadHash({ ...base, signingBlockHeight: 1 })).not.toBe(
+      sessionPayloadHash({ ...base, signingBlockHeight: 2 }),
+    );
   });
 
   it('rejects tip mutation as payloadHashMismatch', () => {
     const { priv, wallet } = testKey();
-    const command = { taskId: '01HZX' };
     const env = signEnvelope({
       priv,
       wallet,
       chain: 'testnet',
-      commandKind: 'acceptTask',
-      command,
       signingBlockHash: 'ab'.repeat(32),
       signingBlockHeight: 1,
     });
     env.signingBlockHeight = 2;
     try {
-      assertEnvelope(env, 'testnet', 'acceptTask', command);
+      assertEnvelope(env, 'testnet');
       expect.fail('expected payloadHashMismatch');
     } catch (e) {
       expect(e).toBeInstanceOf(RadarProblem);
@@ -62,22 +62,18 @@ describe('envelope', () => {
     }
   });
 
-  it('rejects commandKind mismatch, bad version, chain mismatch, and short sig', () => {
+  it('rejects bad version, chain mismatch, and short sig', () => {
     const { priv, wallet } = testKey();
-    const command = { taskId: '01HZX' };
     const env = signEnvelope({
       priv,
       wallet,
       chain: 'testnet',
-      commandKind: 'acceptTask',
-      command,
       signingBlockHash: 'ab'.repeat(32),
       signingBlockHeight: 1,
     });
-    expect(() => assertEnvelope(env, 'testnet', 'completeTask', command)).toThrow(RadarProblem);
-    expect(() => assertEnvelope(env, 'main', 'acceptTask', command)).toThrow(RadarProblem);
+    expect(() => assertEnvelope(env, 'main')).toThrow(RadarProblem);
     env.messageVersion = 2;
-    expect(() => assertEnvelope(env, 'testnet', 'acceptTask', command)).toThrow(RadarProblem);
+    expect(() => assertEnvelope(env, 'testnet')).toThrow(RadarProblem);
     expect(() => decodeCompactSig('aaa')).toThrow(RadarProblem);
     env.messageVersion = 1;
     env.signature = Buffer.alloc(65, 1).toString('base64');
@@ -95,17 +91,22 @@ describe('envelope', () => {
 
   it('accepts Bitcoin signed-message magic then FederationCoin', () => {
     const { priv, wallet } = testKey();
-    const command = { taskId: '01HZX' };
     const env = signEnvelope({
       priv,
       wallet,
       chain: 'testnet',
-      commandKind: 'acceptTask',
-      command,
       signingBlockHash: 'ab'.repeat(32),
       signingBlockHeight: 1,
     });
-    const hash = signedMessageHash(env.payloadHash, BitcoinSignedMessageMagic);
+    const hash = signedMessageHash(
+      sessionMessage({
+        chain: env.chain,
+        signingBlockHeight: env.signingBlockHeight,
+        signingBlockHash: env.signingBlockHash,
+        issuedAt: env.issuedAt,
+      }),
+      BitcoinSignedMessageMagic,
+    );
     const sig = secp.sign(hash, priv);
     const rec = sig.recovery ?? 0;
     const header = 27 + 4 + rec;

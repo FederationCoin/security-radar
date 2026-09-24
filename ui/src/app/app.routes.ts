@@ -6,6 +6,7 @@ import { ClockPage } from './pages/clock.page';
 import { TasksPage } from './pages/tasks.page';
 import { ChangedPage } from './pages/changed.page';
 import { LoginPage } from './pages/login.page';
+import { FeedsPage } from './pages/feeds.page';
 
 export const routes: Routes = [
   { path: '', component: DashboardPage },
@@ -14,5 +15,6 @@ export const routes: Routes = [
   { path: 'bips', component: BipsPage },
   { path: 'clock', component: ClockPage },
   { path: 'tasks', component: TasksPage },
+  { path: 'feeds', component: FeedsPage },
   { path: 'changed', component: ChangedPage },
 ];

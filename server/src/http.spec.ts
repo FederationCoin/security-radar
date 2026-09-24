@@ -31,6 +31,7 @@ async function appWith(allow: string[] = [], opts: { clock?: boolean } = {}) {
     corsOrigins: ['https://radar.federationcoin.org'],
     trustedProxyHops: 1,
     maintainerAllowlist: allow,
+    sessionMaxBlockDepth: 48,
     ...(opts.clock === false
       ? {}
       : {
@@ -82,25 +83,52 @@ describe('http radar', () => {
     await app.close();
   });
 
-  function signed(commandKind: Parameters<typeof signEnvelope>[0]['commandKind'], command: unknown) {
+  function signed() {
     const env = signEnvelope({
       priv,
       wallet,
       chain: 'testnet',
-      commandKind,
-      command,
       signingBlockHash: chain.state.hash,
       signingBlockHeight: chain.state.height,
     });
     return { env, header: bearer(env) };
   }
 
-  it('serves health, docs, and openapi 0.3.0', async () => {
+  it('serves the last mined block as the message to sign', async () => {
+    const res = await request(app.getHttpServer()).get('/v1/sign-context').set('X-FederationCoin-Chain', 'testnet').expect(200);
+    expect(res.body.signingBlockHeight).toBe(chain.state.height);
+    expect(res.body.signingBlockHash).toBe(chain.state.hash);
+    expect(res.body.message).toContain(String(chain.state.height));
+    expect(res.body.message).toContain(chain.state.hash);
+  });
+
+  it('rejects a signed block older than the session depth', async () => {
+    chain.state.height = 100;
+    chain.headers.set(100, chain.state.hash);
+    const oldHash = '11'.repeat(32);
+    chain.headers.set(40, oldHash);
+    const env = signEnvelope({
+      priv,
+      wallet,
+      chain: 'testnet',
+      signingBlockHash: oldHash,
+      signingBlockHeight: 40,
+    });
+    const res = await request(app.getHttpServer())
+      .post('/v1/tasks/accept')
+      .set('X-FederationCoin-Chain', 'testnet')
+      .set('Authorization', bearer(env))
+      .send({ taskId: 'old' });
+    expect(res.status).toBe(400);
+    chain.state.height = 10;
+  });
+
+  it('serves health, docs, and openapi 0.4.0', async () => {
     await request(app.getHttpServer()).get('/v1/healthz').expect(200);
     await request(app.getHttpServer()).get('/v1/readyz').expect(200);
     await request(app.getHttpServer()).get('/v1/docs').expect(200);
     const spec = await request(app.getHttpServer()).get('/v1/openapi.json').expect(200);
-    expect(spec.body.info.version).toBe('0.3.0');
+    expect(spec.body.info.version).toBe('0.4.0');
   });
 
   it('requires chain header and rejects dummy MAIN', async () => {
@@ -126,7 +154,7 @@ describe('http radar', () => {
       .get(`/v1/intel/events/${id}`)
       .set('X-FederationCoin-Chain', 'testnet')
       .expect(404);
-    const { header } = signed('listUnackedDistant', { commandKind: 'listUnackedDistant' });
+    const { header } = signed();
     const hidden = await request(app.getHttpServer())
       .get('/v1/intel/distant-unacked')
       .set('X-FederationCoin-Chain', 'testnet')
@@ -138,7 +166,7 @@ describe('http radar', () => {
   it('acks a distant feed then shows it on public GET', async () => {
     const id = await intel.upsertDistantFeedEvent('x', 'post-2', 'Rob', 'acked later');
     const body = { eventId: id };
-    const { header } = signed('ackDistantFeed', body);
+    const { header } = signed();
     await request(app.getHttpServer())
       .post('/v1/feeds/ack')
       .set('X-FederationCoin-Chain', 'testnet')
@@ -165,7 +193,7 @@ describe('http radar', () => {
     expect(await intel.depVulnIsPresent(eventId)).toBe(true);
     const task = await intel.insertTask('patch openssl', eventId);
     const complete = { taskId: task.id };
-    const { header } = signed('completeTask', complete);
+    const { header } = signed();
     await request(app.getHttpServer())
       .post('/v1/tasks/complete')
       .set('X-FederationCoin-Chain', 'testnet')
@@ -180,7 +208,7 @@ describe('http radar', () => {
     expect(got.body.present).toBe(true);
     expect(got.body.taskComplete).toBe(true);
     const missingBip = { bipId: 'no-such', understanding: 'a', applicability: 'b' };
-    const br = signed('reviewBip', missingBip);
+    const br = signed();
     await request(app.getHttpServer())
       .post('/v1/bips/review')
       .set('X-FederationCoin-Chain', 'testnet')
@@ -191,7 +219,7 @@ describe('http radar', () => {
 
   it('creates scan context, reviews BIP, assessments, and rejects taproot', async () => {
     const create = { name: 'mill', githubOwner: 'FederationCoin', githubName: 'cpu-miner' };
-    const { header } = signed('createScanContext', create);
+    const { header } = signed();
     const created = await request(app.getHttpServer())
       .post('/v1/scan-contexts')
       .set('X-FederationCoin-Chain', 'testnet')
@@ -202,7 +230,7 @@ describe('http radar', () => {
 
     const bip = await intel.upsertBip({ number: 341, title: 'Taproot', summary: 'witness v1' });
     const blank = { bipId: bip.id, understanding: '  ', applicability: 'we do not implement' };
-    const blankSigned = signed('reviewBip', blank);
+    const blankSigned = signed();
     const blankRes = await request(app.getHttpServer())
       .post('/v1/bips/review')
       .set('X-FederationCoin-Chain', 'testnet')
@@ -210,7 +238,7 @@ describe('http radar', () => {
       .send(blank);
     expect(blankRes.status).toBe(400);
     const blankApp = { bipId: bip.id, understanding: 'Schnorr', applicability: ' ' };
-    const blankAppSigned = signed('reviewBip', blankApp);
+    const blankAppSigned = signed();
     const blankAppRes = await request(app.getHttpServer())
       .post('/v1/bips/review')
       .set('X-FederationCoin-Chain', 'testnet')
@@ -225,7 +253,7 @@ describe('http radar', () => {
       honor: true,
       implement: false,
     };
-    const r = signed('reviewBip', review);
+    const r = signed();
     await request(app.getHttpServer())
       .post('/v1/bips/review')
       .set('X-FederationCoin-Chain', 'testnet')
@@ -243,28 +271,28 @@ describe('http radar', () => {
 
     const um = await intel.upsertUpstreamMainlineEvent(created.body.id, 'up-1', 'abc', 'consensus tweak');
     const human = { eventId: um, writeup: 'we keep our nBits' };
-    const h = signed('recordHumanAssessment', human);
+    const h = signed();
     await request(app.getHttpServer())
       .post('/v1/assessments/human')
       .set('X-FederationCoin-Chain', 'testnet')
       .set('Authorization', h.header)
       .send(human)
       .expect(200);
-    const nf = signed('recordNoForkAssessment', human);
+    const nf = signed();
     await request(app.getHttpServer())
       .post('/v1/assessments/no-fork')
       .set('X-FederationCoin-Chain', 'testnet')
       .set('Authorization', nf.header)
       .send(human)
       .expect(200);
-    const sf = signed('recordSoftForkAssessment', human);
+    const sf = signed();
     await request(app.getHttpServer())
       .post('/v1/assessments/soft-fork')
       .set('X-FederationCoin-Chain', 'testnet')
       .set('Authorization', sf.header)
       .send(human)
       .expect(200);
-    const hf = signed('recordHardForkAssessment', human);
+    const hf = signed();
     await request(app.getHttpServer())
       .post('/v1/assessments/hard-fork')
       .set('X-FederationCoin-Chain', 'testnet')
@@ -277,8 +305,6 @@ describe('http radar', () => {
       priv,
       wallet: tap,
       chain: 'testnet',
-      commandKind: 'acceptTask',
-      command: { taskId: 'nope' },
       signingBlockHash: chain.state.hash,
       signingBlockHeight: chain.state.height,
     });
@@ -306,8 +332,6 @@ describe('http radar', () => {
       priv,
       wallet,
       chain: 'testnet',
-      commandKind: 'acceptTask',
-      command: body,
       signingBlockHash: 'cd'.repeat(32),
       signingBlockHeight: 99,
     });
@@ -326,8 +350,6 @@ describe('http radar', () => {
       priv: other.priv,
       wallet: other.wallet,
       chain: 'testnet',
-      commandKind: 'createScanContext',
-      command: body,
       signingBlockHash: chain.state.hash,
       signingBlockHeight: chain.state.height,
     });
@@ -339,7 +361,7 @@ describe('http radar', () => {
       .expect(401);
     const task = await intel.insertTask('do thing', 'evt');
     const accept = { taskId: task.id };
-    const first = signed('acceptTask', accept);
+    const first = signed();
     await request(app.getHttpServer())
       .post('/v1/tasks/accept')
       .set('X-FederationCoin-Chain', 'testnet')
@@ -351,7 +373,13 @@ describe('http radar', () => {
       .set('X-FederationCoin-Chain', 'testnet')
       .set('Authorization', first.header)
       .send(accept)
-      .expect(400);
+      .expect(200);
+    await request(app.getHttpServer())
+      .post('/v1/tasks/complete')
+      .set('X-FederationCoin-Chain', 'testnet')
+      .set('Authorization', first.header)
+      .send(accept)
+      .expect(200);
   });
 
   it('returns 204 when the URI is right and there is no representation', async () => {
@@ -366,8 +394,6 @@ describe('http radar', () => {
       priv,
       wallet,
       chain: 'testnet',
-      commandKind: 'listUnackedDistant',
-      command: { commandKind: 'listUnackedDistant' },
       signingBlockHash: empty.chain.state.hash,
       signingBlockHeight: empty.chain.state.height,
     });
@@ -440,6 +466,7 @@ describe('http radar', () => {
             corsOrigins: ['https://radar.federationcoin.org'],
             trustedProxyHops: 1,
             maintainerAllowlist: [wallet],
+            sessionMaxBlockDepth: 48,
           },
         },
       ],

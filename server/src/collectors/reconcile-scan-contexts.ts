@@ -29,11 +29,9 @@ export class ReconcileScanContexts {
     for (const repo of repos) {
       const key = `${repo.owner}/${repo.name}`;
       if (!tracked.has(key)) {
-        const eventId = await this.intel.upsertMissingScanContextEvent(key, repo.id);
-        await this.intel.observeMissingContext(eventId, hourlyScanRunId);
-        if (!(await this.intel.openTaskForEvent(eventId))) {
-          await this.intel.insertTask(`Create ScanContext for ${key}`, eventId);
-        }
+        const ctx = await this.intel.insertScanContext(repo.name);
+        await this.intel.trackRepo(ctx.id, repo.id);
+        tracked.add(key);
       }
     }
     this.log.log('ReconcileScanContexts finished');

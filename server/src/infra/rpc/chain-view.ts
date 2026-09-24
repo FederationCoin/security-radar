@@ -52,4 +52,9 @@ export class RpcChainView implements ChainView {
     };
     return { height: info.blocks, hash: info.bestblockhash };
   }
+
+  async headerHashAt(chain: ChainId, height: number): Promise<string | undefined> {
+    const hash = await this.rpc(chain, 'getblockhash', [height]);
+    return typeof hash === 'string' ? hash : undefined;
+  }
 }

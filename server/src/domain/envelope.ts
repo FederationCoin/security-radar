@@ -11,8 +11,8 @@ secp.etc.hmacSha256Sync = (k, ...msgs) => {
   return h.digest();
 };
 import { RadarSignedMessageMagic, SignedMessageMagics } from './constants';
-import { signedPayloadHash } from './jcs';
-import { RadarProblem, type CommandKind, type SigningEnvelope } from './types';
+import { sessionMessage, sessionPayloadHash } from './jcs';
+import { RadarProblem, type SigningEnvelope } from './types';
 import { assertP2wpkh, encodeP2wpkh } from './wallet';
 import type { ChainId } from './constants';
 
@@ -93,7 +93,12 @@ export function decodeCompactSig(signature: string): { recId: number; compact: U
 
 export function verifyEnvelopeSignature(env: SigningEnvelope): void {
   const prog = assertP2wpkh(env.wallet, env.chain);
-  const inner = env.payloadHash.toLowerCase();
+  const inner = sessionMessage({
+    chain: env.chain,
+    signingBlockHeight: env.signingBlockHeight,
+    signingBlockHash: env.signingBlockHash,
+    issuedAt: env.issuedAt,
+  });
   const { recId, compact } = decodeCompactSig(env.signature);
   for (const magic of SignedMessageMagics) {
     try {
@@ -109,24 +114,25 @@ export function verifyEnvelopeSignature(env: SigningEnvelope): void {
   throw new RadarProblem(401, 'badSignature', 'Signature does not match wallet');
 }
 
-export function assertEnvelope(
-  env: SigningEnvelope,
-  chain: ChainId,
-  commandKind: CommandKind,
-  command: unknown,
-): void {
+export function assertEnvelope(env: SigningEnvelope, chain: ChainId): void {
   if (env.messageVersion !== 1) {
     throw new RadarProblem(400, 'badEnvelope', 'messageVersion must be 1');
   }
   if (env.chain !== chain) {
     throw new RadarProblem(400, 'chainMismatch', 'Envelope chain does not match header');
   }
-  if (env.commandKind !== commandKind) {
-    throw new RadarProblem(400, 'commandKindMismatch', 'commandKind does not match this route');
+  if (!env.issuedAt || Number.isNaN(Date.parse(env.issuedAt))) {
+    throw new RadarProblem(400, 'badEnvelope', 'issuedAt is not a time');
   }
-  const expected = signedPayloadHash(command, env.signingBlockHeight, env.signingBlockHash);
+  const fields = {
+    chain: env.chain,
+    signingBlockHeight: env.signingBlockHeight,
+    signingBlockHash: env.signingBlockHash,
+    issuedAt: env.issuedAt,
+  };
+  const expected = sessionPayloadHash(fields);
   if (env.payloadHash.toLowerCase() !== expected) {
-    throw new RadarProblem(400, 'payloadHashMismatch', 'payloadHash does not match command');
+    throw new RadarProblem(400, 'payloadHashMismatch', 'payloadHash does not match the signed message');
   }
   verifyEnvelopeSignature(env);
 }

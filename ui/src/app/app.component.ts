@@ -61,6 +61,7 @@ export class AppComponent {
     { path: '/bips', label: 'BIPs' },
     { path: '/clock', label: 'PQ clock' },
     { path: '/tasks', label: 'Tasks' },
+    { path: '/feeds', label: 'Feeds' },
     { path: '/changed', label: 'What we changed' },
   ];
 

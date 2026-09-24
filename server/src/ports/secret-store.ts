@@ -31,6 +31,8 @@ export type ApiSettings = {
   corsOrigins: string[];
   trustedProxyHops: number;
   maintainerAllowlist: string[];
+  /** Signed tip may lag the current tip by this many blocks. Testnet default 48. */
+  sessionMaxBlockDepth: number;
   quantumClock?: QuantumClockPublic;
 };
 

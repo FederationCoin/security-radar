@@ -10,6 +10,10 @@ describe('EventPage', () => {
     const api = {
       getEvent: vi.fn().mockResolvedValue(event),
       ack: vi.fn().mockResolvedValue(undefined),
+      recordHuman: vi.fn().mockResolvedValue(undefined),
+      recordNoFork: vi.fn().mockResolvedValue(undefined),
+      recordSoftFork: vi.fn().mockResolvedValue(undefined),
+      recordHardFork: vi.fn().mockResolvedValue(undefined),
       signedIn: () => signedIn,
     };
     await TestBed.configureTestingModule({
@@ -47,6 +51,29 @@ describe('EventPage', () => {
     expect(fixture.nativeElement.textContent).toContain('Ack distant feed');
     (fixture.nativeElement.querySelector('button') as HTMLButtonElement).click();
     expect(api.ack).toHaveBeenCalledWith('e1');
+  });
+
+  it('saves the four upstream assessments when signed in', async () => {
+    const { fixture, api } = await setup(
+      { type: 'UpstreamMainlineEvent', id: 'e1', createdAt: 't', headline: 'Upstream moved' },
+      true,
+    );
+    expect(fixture.nativeElement.textContent).toContain('Human assessment');
+    expect(fixture.nativeElement.textContent).toContain('No fork');
+    expect(fixture.nativeElement.textContent).toContain('Soft fork');
+    expect(fixture.nativeElement.textContent).toContain('Hard fork');
+    fixture.componentInstance.human.controls.writeup.setValue('looked');
+    fixture.componentInstance.noFork.controls.writeup.setValue('none');
+    fixture.componentInstance.softFork.controls.writeup.setValue('soft');
+    fixture.componentInstance.hardFork.controls.writeup.setValue('hard');
+    fixture.componentInstance.saveHuman();
+    fixture.componentInstance.saveNoFork();
+    fixture.componentInstance.saveSoftFork();
+    fixture.componentInstance.saveHardFork();
+    expect(api.recordHuman).toHaveBeenCalledWith('e1', 'looked');
+    expect(api.recordNoFork).toHaveBeenCalledWith('e1', 'none');
+    expect(api.recordSoftFork).toHaveBeenCalledWith('e1', 'soft');
+    expect(api.recordHardFork).toHaveBeenCalledWith('e1', 'hard');
   });
 
   it('does not show Ack on a non-distant event even when signed in', async () => {

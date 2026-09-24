@@ -25,19 +25,33 @@ describe('LoginPage', () => {
     }).compileComponents();
     const fixture = TestBed.createComponent(LoginPage);
     fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    const req = http.expectOne((r) => r.url.includes('/sign-context'));
+    req.flush({
+      signingBlockHeight: 222,
+      signingBlockHash: 'ab'.repeat(32),
+      issuedAt: '2026-09-24T02:00:00.000Z',
+      message: '{"chain":"testnet","signingBlockHeight":222,"signingBlockHash":"' + 'ab'.repeat(32) + '"}',
+      payloadHash: 'cd'.repeat(32),
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
     const router = TestBed.inject(Router);
     const nav = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
-    return { fixture, api: TestBed.inject(RadarApi), nav, http: TestBed.inject(HttpTestingController) };
+    return { fixture, api: TestBed.inject(RadarApi), nav, http };
   }
 
-  it('stores an envelope in the tab and navigates home without a signed GET', async () => {
+  it('shows the tip message before the signature field and stores a bearer', async () => {
     const { fixture, api, nav, http } = await setup(null);
-    const ta = fixture.nativeElement.querySelector('textarea') as HTMLTextAreaElement;
-    ta.value = '  Bearer abc  ';
-    ta.dispatchEvent(new Event('input'));
-    fixture.detectChanges();
+    const areas = [...fixture.nativeElement.querySelectorAll('textarea')] as HTMLTextAreaElement[];
+    expect(areas[0].value).toContain('222');
+    expect(areas[0].value).toContain('ab'.repeat(8));
+    expect(areas[0].readOnly).toBe(true);
+    expect(areas[0].value).toContain('signingBlockHeight');
+    fixture.componentInstance.form.controls.wallet.setValue('tgfcn1qexample');
+    fixture.componentInstance.form.controls.signature.setValue('sig');
     (fixture.nativeElement.querySelector('button') as HTMLButtonElement).click();
-    expect(api.signature()).toBe('Bearer abc');
+    expect(api.signature().startsWith('Bearer ')).toBe(true);
     expect(api.signedIn()).toBe(true);
     expect(api.toast()).toContain('this tab only');
     expect(nav).toHaveBeenCalledWith('/');
@@ -46,30 +60,53 @@ describe('LoginPage', () => {
 
   it('navigates to a same-origin return path', async () => {
     const { fixture, nav } = await setup('/tasks');
-    fixture.componentInstance.form.controls.envelope.setValue('tok');
+    fixture.componentInstance.form.controls.wallet.setValue('tgfcn1qexample');
+    fixture.componentInstance.form.controls.signature.setValue('tok');
     fixture.componentInstance.save();
     expect(nav).toHaveBeenCalledWith('/tasks');
   });
 
   it('rejects protocol-relative and login return URLs', async () => {
     const { fixture, nav } = await setup('//evil.example/phish');
-    fixture.componentInstance.form.controls.envelope.setValue('tok');
+    fixture.componentInstance.form.controls.wallet.setValue('tgfcn1qexample');
+    fixture.componentInstance.form.controls.signature.setValue('tok');
     fixture.componentInstance.save();
     expect(nav).toHaveBeenCalledWith('/');
   });
 
   it('rejects a return to /login', async () => {
     const { fixture, nav } = await setup('/login');
-    fixture.componentInstance.form.controls.envelope.setValue('tok');
+    fixture.componentInstance.form.controls.wallet.setValue('tgfcn1qexample');
+    fixture.componentInstance.form.controls.signature.setValue('tok');
     fixture.componentInstance.save();
     expect(nav).toHaveBeenCalledWith('/');
   });
 
+  it('shows an error when the tip cannot be loaded', async () => {
+    await TestBed.configureTestingModule({
+      imports: [LoginPage],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideNoopAnimations(),
+        RadarApi,
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(LoginPage);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne((r) => r.url.includes('/sign-context')).flush('no', { status: 500, statusText: 'err' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Could not load the current block');
+    http.verify();
+  });
+
   it('clears an empty paste without navigating', async () => {
     const { fixture, api, nav } = await setup('/tasks');
-    const ta = fixture.nativeElement.querySelector('textarea') as HTMLTextAreaElement;
-    ta.value = '   ';
-    ta.dispatchEvent(new Event('input'));
+    fixture.componentInstance.form.controls.signature.setValue('   ');
     fixture.detectChanges();
     (fixture.nativeElement.querySelector('button') as HTMLButtonElement).click();
     expect(api.signedIn()).toBe(false);

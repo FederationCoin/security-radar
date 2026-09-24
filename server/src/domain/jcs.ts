@@ -14,12 +14,19 @@ export function payloadHashHex(command: unknown): string {
   return bytesToHex(sha256(new TextEncoder().encode(jcs(command))));
 }
 
-export function signedPayloadHash(
-  command: unknown,
-  signingBlockHeight: number,
-  signingBlockHash: string,
-): string {
-  return payloadHashHex({ command, signingBlockHeight, signingBlockHash });
+export type SessionMessage = {
+  chain: string;
+  signingBlockHeight: number;
+  signingBlockHash: string;
+  issuedAt: string;
+};
+
+export function sessionMessage(fields: SessionMessage): string {
+  return jcs(fields);
+}
+
+export function sessionPayloadHash(fields: SessionMessage): string {
+  return payloadHashHex(fields);
 }
 
 export function sha256Hex(text: string): string {

@@ -14,13 +14,13 @@ export type CommandKind =
 
 export type SigningEnvelope = {
   messageVersion: number;
-  commandKind: CommandKind;
   chain: ChainId;
   wallet: string;
   payloadHash: string;
   signature: string;
   signingBlockHash: string;
   signingBlockHeight: number;
+  issuedAt: string;
 };
 
 export type RadarErrorCode =

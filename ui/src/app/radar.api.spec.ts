@@ -118,4 +118,24 @@ describe('RadarApi', () => {
     await fail;
     expect(api.toast()).toContain('Review failed');
   });
+
+  it('loads unacked feeds and posts the four assessments with the session bearer', async () => {
+    api.signature.set('Bearer tok');
+    const list = api.listUnacked();
+    http.expectOne(`${ApiBase}/intel/distant-unacked`).flush({ items: [{ type: 'DistantFeedEvent', id: 'f', createdAt: 't' }] });
+    expect((await list)[0].id).toBe('f');
+    const human = api.recordHuman('e', 'looked');
+    http.expectOne(`${ApiBase}/assessments/human`).flush({ ok: true });
+    await human;
+    const none = api.recordNoFork('e', 'none');
+    http.expectOne(`${ApiBase}/assessments/no-fork`).flush({ ok: true });
+    await none;
+    const soft = api.recordSoftFork('e', 'soft');
+    http.expectOne(`${ApiBase}/assessments/soft-fork`).flush({ ok: true });
+    await soft;
+    const hard = api.recordHardFork('e', 'hard');
+    http.expectOne(`${ApiBase}/assessments/hard-fork`).flush({ ok: true });
+    await hard;
+    expect(api.toast()).toContain('Hard-fork');
+  });
 });

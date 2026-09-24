@@ -75,6 +75,13 @@ export class RadarApi {
     return resp.body;
   }
 
+  private async getSignedItems<T>(url: string): Promise<T[]> {
+    const body = await firstValueFrom(
+      this.http.get<{ items: T[] }>(url, { headers: this.headers(true) }),
+    );
+    return body?.items ?? [];
+  }
+
   private async getItems<T>(url: string): Promise<T[]> {
     const body = await this.getOptional<{ items: T[] }>(url);
     return body?.items ?? [];
@@ -115,6 +122,26 @@ export class RadarApi {
       'Task completed. Complete does not clear a vuln flag.',
       'Complete failed. Taproot is rejected; signer must be a maintainer.',
     );
+  }
+
+  async listUnacked(): Promise<PublicEvent[]> {
+    return this.getSignedItems<PublicEvent>(`${ApiBase}/intel/distant-unacked`);
+  }
+
+  async recordHuman(eventId: string, writeup: string): Promise<void> {
+    await this.signedPost(`${ApiBase}/assessments/human`, { eventId, writeup }, 'Assessment stored.', 'Assessment failed.');
+  }
+
+  async recordNoFork(eventId: string, writeup: string): Promise<void> {
+    await this.signedPost(`${ApiBase}/assessments/no-fork`, { eventId, writeup }, 'No-fork assessment stored.', 'Assessment failed.');
+  }
+
+  async recordSoftFork(eventId: string, writeup: string): Promise<void> {
+    await this.signedPost(`${ApiBase}/assessments/soft-fork`, { eventId, writeup }, 'Soft-fork assessment stored.', 'Assessment failed.');
+  }
+
+  async recordHardFork(eventId: string, writeup: string): Promise<void> {
+    await this.signedPost(`${ApiBase}/assessments/hard-fork`, { eventId, writeup }, 'Hard-fork assessment stored.', 'Assessment failed.');
   }
 
   async reviewBip(body: ReviewBipBody): Promise<void> {

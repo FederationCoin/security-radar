@@ -4,6 +4,7 @@ export type ChainTip = { height: number; hash: string };
 
 export interface ChainView {
   getTip(chain: ChainId): Promise<ChainTip>;
+  headerHashAt(chain: ChainId, height: number): Promise<string | undefined>;
 }
 
 export type RateLimitResult = { allowed: boolean; retryAfterSeconds: number };

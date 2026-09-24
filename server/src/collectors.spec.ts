@@ -88,8 +88,9 @@ describe('collectors', () => {
     const gone = await intel.upsertGitHubRepository('FederationCoin', 'gone-repo');
     await intel.trackRepo(ctx.id, gone.id);
     await rec.run(hourly.id);
-    const missing = await intel.listPublicEvents();
-    expect(missing.items.some((e) => e.type === 'MissingScanContextEvent')).toBe(true);
+    const contexts = await intel.listScanContexts();
+    expect(contexts.some((c) => c.name === 'cpu-miner')).toBe(true);
+    expect(await intel.listMissingScanContextEventIds()).toEqual([]);
   });
 
   it('ingests artifacts, upstream, bips, distant feeds, and gap tasks', async () => {

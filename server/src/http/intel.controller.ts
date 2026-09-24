@@ -24,6 +24,12 @@ import type {
 export class IntelController {
   constructor(@Inject(IntelService) private readonly intel: IntelService) {}
 
+  @Get('sign-context')
+  @UseGuards(ChainHeaderGuard)
+  signContext(@ClientIp() ip: string, @Chain() chain: ChainId) {
+    return this.intel.signContext(ip, chain);
+  }
+
   @Get('intel/events')
   @UseGuards(ChainHeaderGuard)
   async listEvents(@ClientIp() ip: string, @Res({ passthrough: true }) res: Response, @Query('cursor') cursor?: string) {

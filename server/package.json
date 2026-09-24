@@ -1,6 +1,6 @@
 {
   "name": "security-radar",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "FederationCoin security radar NestJS API and collector. Not pool-registry.",
   "author": "FederationCoin",

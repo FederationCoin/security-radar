@@ -32,8 +32,6 @@ describe('jcs and settings', () => {
       priv,
       wallet,
       chain: 'testnet',
-      commandKind: 'acceptTask',
-      command: { taskId: 't' },
       signingBlockHash: 'ab'.repeat(32),
       signingBlockHeight: 1,
     });
