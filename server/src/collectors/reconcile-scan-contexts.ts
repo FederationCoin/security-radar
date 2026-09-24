@@ -34,6 +34,15 @@ export class ReconcileScanContexts {
         tracked.add(key);
       }
     }
+    const prefix = 'Create ScanContext for ';
+    for (const task of await this.intel.listTasks()) {
+      if (task.complete || !task.title.startsWith(prefix)) {
+        continue;
+      }
+      if (tracked.has(task.title.slice(prefix.length))) {
+        await this.intel.markTaskComplete(task.id);
+      }
+    }
     this.log.log('ReconcileScanContexts finished');
   }
 }

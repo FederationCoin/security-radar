@@ -119,7 +119,8 @@ export interface IntelStore {
   acceptTask(maintainerId: string, taskId: string, at: string): Promise<void>;
   completeTask(maintainerId: string, taskId: string, at: string): Promise<void>;
   openTaskForEvent(eventId: string): Promise<TaskRow | undefined>;
-  listTasks(): Promise<Array<{ id: string; title: string; complete: boolean; eventId?: string }>>;
+  listTasks(): Promise<Array<{ id: string; title: string; complete: boolean; accepted: boolean; eventId?: string }>>;
+  markTaskComplete(taskId: string): Promise<void>;
   taskCompleteForEvent(eventId: string): Promise<boolean>;
 
   recordHumanAssessment(eventId: string, writeup: string): Promise<string>;

@@ -32,12 +32,18 @@ import { taskCounts } from '../kind-label';
           <mat-card-content>
             @if (t.complete) {
               <p>Done</p>
-            }
-            @if (api.signedIn() && !t.complete) {
-              <div class="maintainer-panel">
-                <button mat-button type="button" (click)="accept(t.id)">Accept</button>
-                <button mat-flat-button type="button" (click)="complete(t.id)">Complete</button>
-              </div>
+            } @else {
+              @if (t.accepted) {
+                <p>Accepted</p>
+              }
+              @if (api.signedIn()) {
+                <div class="maintainer-panel">
+                  @if (!t.accepted) {
+                    <button mat-button type="button" (click)="accept(t.id)">Accept</button>
+                  }
+                  <button mat-flat-button type="button" (click)="complete(t.id)">Complete</button>
+                </div>
+              }
             }
           </mat-card-content>
         </mat-card>
@@ -51,11 +57,7 @@ export class TasksPage {
   readonly error = signal('');
   readonly loading = signal(true);
   constructor() {
-    void this.api
-      .listTasks()
-      .then((items) => this.tasks.set(items))
-      .catch(() => this.error.set('Could not load tasks.'))
-      .finally(() => this.loading.set(false));
+    void this.reload();
   }
 
   counts() {
@@ -63,10 +65,22 @@ export class TasksPage {
   }
 
   accept(taskId: string): void {
-    void this.api.acceptTask(taskId);
+    void this.api.acceptTask(taskId).then(() => this.reload());
   }
 
   complete(taskId: string): void {
-    void this.api.completeTask(taskId);
+    void this.api.completeTask(taskId).then(() => this.reload());
+  }
+
+  private async reload(): Promise<void> {
+    this.loading.set(true);
+    this.error.set('');
+    try {
+      this.tasks.set(await this.api.listTasks());
+    } catch {
+      this.error.set('Could not load tasks.');
+    } finally {
+      this.loading.set(false);
+    }
   }
 }

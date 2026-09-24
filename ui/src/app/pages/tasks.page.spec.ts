@@ -2,12 +2,12 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { TasksPage } from './tasks.page';
-import { RadarApi } from '../radar.api';
+import { RadarApi, type RadarTask } from '../radar.api';
 import { describe, expect, it, vi } from 'vitest';
 
 describe('TasksPage', () => {
   async function setup(
-    tasks: Array<{ id: string; title: string; complete: boolean }>,
+    tasks: RadarTask[],
     signedIn: boolean,
     list: ReturnType<typeof vi.fn> = vi.fn().mockResolvedValue(tasks),
   ) {
@@ -45,6 +45,28 @@ describe('TasksPage', () => {
     expect(api.completeTask).toHaveBeenCalledWith('t1');
   });
 
+  it('shows Accepted and hides Accept after a maintainer takes the task', async () => {
+    const open = { id: 't1', title: 'Patch', complete: false, accepted: false };
+    const taken = { id: 't1', title: 'Patch', complete: false, accepted: true };
+    const list = vi.fn().mockResolvedValueOnce([open]).mockResolvedValue([taken]);
+    const { fixture } = await setup([open], true, list);
+    const accept = [...fixture.nativeElement.querySelectorAll('button')].find(
+      (b: HTMLButtonElement) => b.textContent?.trim() === 'Accept',
+    ) as HTMLButtonElement;
+    accept.click();
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Accepted');
+    const labels = [...fixture.nativeElement.querySelectorAll('button')].map((b: HTMLButtonElement) => b.textContent?.trim());
+    expect(labels).toEqual(['Complete']);
+  });
+
+  it('shows Accepted without buttons when unsigned', async () => {
+    const { fixture } = await setup([{ id: 't1', title: 'Patch', complete: false, accepted: true }], false);
+    expect(fixture.nativeElement.textContent).toContain('Accepted');
+    expect(fixture.nativeElement.querySelectorAll('button').length).toBe(0);
+  });
+
   it('hides action buttons on a completed task even when signed in', async () => {
     const { fixture } = await setup([{ id: 't1', title: 'Patch', complete: true }], true);
     expect(fixture.nativeElement.textContent).toContain('Done');
@@ -63,9 +85,9 @@ describe('TasksPage', () => {
   });
 
   it('shows loading until the GET settles', async () => {
-    let resolve!: (items: Array<{ id: string; title: string; complete: boolean }>) => void;
+    let resolve!: (items: RadarTask[]) => void;
     const list = vi.fn().mockImplementation(
-      () => new Promise<Array<{ id: string; title: string; complete: boolean }>>((r) => (resolve = r)),
+      () => new Promise<RadarTask[]>((r) => (resolve = r)),
     );
     await TestBed.configureTestingModule({
       imports: [TasksPage],

@@ -35,7 +35,7 @@ export type Bip = {
   ethosNotes?: string;
 };
 
-export type RadarTask = { id: string; title: string; complete: boolean };
+export type RadarTask = { id: string; title: string; complete: boolean; accepted?: boolean };
 
 export type ReviewBipBody = {
   bipId: string;

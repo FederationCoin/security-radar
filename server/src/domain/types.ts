@@ -210,4 +210,4 @@ export type PublicEventDto =
 
 export type EventPage = { items: PublicEventDto[]; cursor?: string };
 export type BipPage = { items: BipRow[] };
-export type TaskPage = { items: Array<{ id: string; title: string; complete: boolean; eventId?: string }> };
+export type TaskPage = { items: Array<{ id: string; title: string; complete: boolean; accepted: boolean; eventId?: string }> };

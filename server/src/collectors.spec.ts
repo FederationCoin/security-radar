@@ -91,6 +91,16 @@ describe('collectors', () => {
     const contexts = await intel.listScanContexts();
     expect(contexts.some((c) => c.name === 'cpu-miner')).toBe(true);
     expect(await intel.listMissingScanContextEventIds()).toEqual([]);
+    const leftover = await intel.insertTask('Create ScanContext for FederationCoin/cpu-miner', 'evt');
+    const untracked = await intel.insertTask('Create ScanContext for FederationCoin/not-tracked', 'evt');
+    const scan = await intel.insertTask('Missing radar-deps artifact for cpu-miner', 'evt');
+    await rec.run(hourly.id);
+    const tasks = await intel.listTasks();
+    expect(tasks.find((t) => t.id === leftover.id)?.complete).toBe(true);
+    expect(tasks.find((t) => t.id === untracked.id)?.complete).toBe(false);
+    expect(tasks.find((t) => t.id === scan.id)?.complete).toBe(false);
+    await intel.markTaskComplete(leftover.id);
+    await intel.markTaskComplete('missing');
   });
 
   it('ingests artifacts, upstream, bips, distant feeds, and gap tasks', async () => {
@@ -157,5 +167,36 @@ describe('collectors', () => {
       gaps,
     );
     await tick.runHourly();
+  });
+
+  it('does not open a BIP review task after that BIP has a review', async () => {
+    const intel = new MemoryIntelStore();
+    await new CollectBips(intel, github).run();
+    const bip = (await intel.listBips())[0];
+    await intel.reviewBip('maintainer', bip.id, { understanding: 'version bits', applicability: 'we use them' }, new Date().toISOString());
+    const partial = await intel.upsertBip({ number: 11, title: 'M-of-N', summary: 'multisig' });
+    await intel.reviewBip('maintainer', partial.id, { understanding: '   ', applicability: 'we already have it' }, new Date().toISOString());
+    const other = await intel.upsertBip({ number: 16, title: 'Pay to script hash', summary: 'p2sh' });
+    await intel.reviewBip('maintainer', other.id, { understanding: 'hash the script', applicability: '   ' }, new Date().toISOString());
+    await new OpenTasksForGaps(intel).run();
+    const titles = (await intel.listTasks()).map((t) => t.title);
+    expect(titles).toContain('Review BIP 11');
+    expect(titles).toContain('Review BIP 16');
+    expect(titles.some((t) => t.startsWith('Review BIP 9'))).toBe(false);
+  });
+
+  it('opens a review task again after complete while the BIP is still unreviewed', async () => {
+    const intel = new MemoryIntelStore();
+    await new CollectBips(intel, github).run();
+    const gaps = new OpenTasksForGaps(intel);
+    await gaps.run();
+    const first = (await intel.listTasks()).filter((t) => t.title.startsWith('Review BIP'));
+    expect(first).toHaveLength(1);
+    expect(first[0].accepted).toBe(false);
+    await intel.acceptTask('maintainer', first[0].id, new Date().toISOString());
+    expect((await intel.listTasks()).find((t) => t.id === first[0].id)?.accepted).toBe(true);
+    await intel.completeTask('maintainer', first[0].id, new Date().toISOString());
+    await gaps.run();
+    expect((await intel.listTasks()).filter((t) => t.title.startsWith('Review BIP'))).toHaveLength(2);
   });
 });

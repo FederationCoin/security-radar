@@ -672,12 +672,33 @@ export class MysqlIntelStore implements IntelStore {
     return rows[0] ? this.taskFromRow(rows[0]) : undefined;
   }
 
-  async listTasks(): Promise<Array<{ id: string; title: string; complete: boolean; eventId?: string }>> {
-    const rows = await this.q('SELECT id, title, created_at, completed_at, event_id FROM task');
+  async listTasks(): Promise<Array<{ id: string; title: string; complete: boolean; accepted: boolean; eventId?: string }>> {
+    const rows = await this.q(
+      `SELECT t.id, t.title, t.created_at, t.completed_at, t.event_id,
+              EXISTS(
+                SELECT 1 FROM maintainer_takes_task m
+                WHERE m.task_id = t.id AND m.accepted_at IS NOT NULL
+              ) AS accepted
+       FROM task t`,
+    );
     return rows.map((r) => {
       const t = this.taskFromRow(r);
-      return { id: t.id, title: t.title, complete: Boolean(t.completedAt), eventId: t.eventId };
+      return {
+        id: t.id,
+        title: t.title,
+        complete: Boolean(t.completedAt),
+        accepted: Number(r.accepted) === 1,
+        eventId: t.eventId,
+      };
     });
+  }
+
+  async markTaskComplete(taskId: string): Promise<void> {
+    const task = await this.getTask(taskId);
+    if (!task || task.completedAt) {
+      return;
+    }
+    await this.exec('UPDATE task SET completed_at = ? WHERE id = ?', [nowSql(), taskId]);
   }
 
   async taskCompleteForEvent(eventId: string): Promise<boolean> {

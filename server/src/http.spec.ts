@@ -368,6 +368,13 @@ describe('http radar', () => {
       .set('Authorization', first.header)
       .send(accept)
       .expect(200);
+    const listed = await request(app.getHttpServer())
+      .get('/v1/intel/tasks')
+      .set('X-FederationCoin-Chain', 'testnet')
+      .expect(200);
+    const taken = listed.body.items.find((t: { id: string }) => t.id === task.id);
+    expect(taken.accepted).toBe(true);
+    expect(taken.complete).toBe(false);
     await request(app.getHttpServer())
       .post('/v1/tasks/accept')
       .set('X-FederationCoin-Chain', 'testnet')

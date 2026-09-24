@@ -725,6 +725,9 @@ components:
           type: string
         complete:
           type: boolean
+        accepted:
+          type: boolean
+          description: A maintainer has taken this task. Complete is separate.
         eventId:
           type: string
     AcceptTask:

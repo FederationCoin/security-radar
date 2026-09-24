@@ -493,13 +493,22 @@ export class MemoryIntelStore implements IntelStore {
     return [...this.tasks.values()].find((t) => t.eventId === eventId && !t.completedAt);
   }
 
-  async listTasks(): Promise<Array<{ id: string; title: string; complete: boolean; eventId?: string }>> {
+  async listTasks(): Promise<Array<{ id: string; title: string; complete: boolean; accepted: boolean; eventId?: string }>> {
     return [...this.tasks.values()].map((t) => ({
       id: t.id,
       title: t.title,
       complete: Boolean(t.completedAt),
+      accepted: [...this.taskAccept].some((key) => key.endsWith(`:${t.id}`)),
       eventId: t.eventId,
     }));
+  }
+
+  async markTaskComplete(taskId: string): Promise<void> {
+    const task = this.tasks.get(taskId);
+    if (!task || task.completedAt) {
+      return;
+    }
+    this.tasks.set(taskId, { ...task, completedAt: nowIso() });
   }
 
   async taskCompleteForEvent(eventId: string): Promise<boolean> {

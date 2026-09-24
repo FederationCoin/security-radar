@@ -17,6 +17,9 @@ export class OpenTasksForGaps {
     const bips = await this.intel.listBips();
     for (const bip of bips) {
       const eventId = await this.intel.upsertBipArrivedEvent(bip.id);
+      if (bip.whatItDoes?.trim() && bip.howItHitsUs?.trim()) {
+        continue;
+      }
       if (!(await this.intel.openTaskForEvent(eventId))) {
         await this.intel.insertTask(`Review BIP ${bip.number}`, eventId);
       }
