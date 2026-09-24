@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: FederationCoin security radar
-  version: 0.1.0
+  version: 0.3.0
   description: >
     Frozen /v1. Public NestJS intel dashboard plus Sparrow-signed
     maintainer writes. Dummy MAIN is unused. Health is ClusterIP only
@@ -52,6 +52,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EventPage"
+        "204":
+          $ref: "#/components/responses/NoContent"
         "400":
           $ref: "#/components/responses/Problem"
         "429":
@@ -93,6 +95,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BipPage"
+        "204":
+          $ref: "#/components/responses/NoContent"
         "429":
           $ref: "#/components/responses/RateLimited"
   /v1/intel/quantum-clock:
@@ -109,8 +113,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/QuantumClock"
-        "404":
-          $ref: "#/components/responses/Problem"
+        "204":
+          $ref: "#/components/responses/NoContent"
         "429":
           $ref: "#/components/responses/RateLimited"
   /v1/intel/tasks:
@@ -127,6 +131,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TaskPage"
+        "204":
+          $ref: "#/components/responses/NoContent"
         "429":
           $ref: "#/components/responses/RateLimited"
   /v1/intel/distant-unacked:
@@ -144,6 +150,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EventPage"
+        "204":
+          $ref: "#/components/responses/NoContent"
         "401":
           $ref: "#/components/responses/Problem"
   /v1/tasks/accept:
@@ -334,6 +342,8 @@ components:
         type: string
         description: Bearer base64url SigningEnvelope JSON
   responses:
+    NoContent:
+      description: URI is right; no representation
     Problem:
       description: application/problem+json
       content:
@@ -408,7 +418,7 @@ components:
     DependencyVulnEvent:
       type: object
       additionalProperties: false
-      required: [type, id, createdAt, scanContextId, packageIdentity, vulnKey, present, taskComplete, buckets]
+      required: [type, id, createdAt, scanContextId, packageIdentity, vulnKey, present, taskComplete, buckets, headline, blurb]
       properties:
         type:
           type: string
@@ -431,10 +441,16 @@ components:
           type: array
           items:
             type: string
+        headline:
+          type: string
+        blurb:
+          type: string
+        sourceUrl:
+          type: string
     MissingScanContextEvent:
       type: object
       additionalProperties: false
-      required: [type, id, createdAt, githubOwnerName, present, buckets]
+      required: [type, id, createdAt, githubOwnerName, present, buckets, headline, blurb]
       properties:
         type:
           type: string
@@ -451,10 +467,16 @@ components:
           type: array
           items:
             type: string
+        headline:
+          type: string
+        blurb:
+          type: string
+        sourceUrl:
+          type: string
     MissingOrgRepoEvent:
       type: object
       additionalProperties: false
-      required: [type, id, createdAt, scanContextId, missingName, present, buckets]
+      required: [type, id, createdAt, scanContextId, missingName, present, buckets, headline, blurb]
       properties:
         type:
           type: string
@@ -473,10 +495,16 @@ components:
           type: array
           items:
             type: string
+        headline:
+          type: string
+        blurb:
+          type: string
+        sourceUrl:
+          type: string
     MissingDepScanEvent:
       type: object
       additionalProperties: false
-      required: [type, id, createdAt, scanContextId, buckets]
+      required: [type, id, createdAt, scanContextId, buckets, headline, blurb]
       properties:
         type:
           type: string
@@ -491,10 +519,16 @@ components:
           type: array
           items:
             type: string
+        headline:
+          type: string
+        blurb:
+          type: string
+        sourceUrl:
+          type: string
     UpstreamMainlineEvent:
       type: object
       additionalProperties: false
-      required: [type, id, createdAt, scanContextId, upstreamId, commit, title, buckets]
+      required: [type, id, createdAt, scanContextId, upstreamId, commit, title, buckets, headline, blurb]
       properties:
         type:
           type: string
@@ -515,10 +549,16 @@ components:
           type: array
           items:
             type: string
+        headline:
+          type: string
+        blurb:
+          type: string
+        sourceUrl:
+          type: string
     BipArrivedEvent:
       type: object
       additionalProperties: false
-      required: [type, id, createdAt, bipId, buckets]
+      required: [type, id, createdAt, bipId, buckets, headline, blurb]
       properties:
         type:
           type: string
@@ -529,14 +569,26 @@ components:
           type: string
         bipId:
           type: string
+        bipNumber:
+          type: integer
+        bipTitle:
+          type: string
+        bipSummary:
+          type: string
         buckets:
           type: array
           items:
             type: string
+        headline:
+          type: string
+        blurb:
+          type: string
+        sourceUrl:
+          type: string
     StaleUpstreamEvent:
       type: object
       additionalProperties: false
-      required: [type, id, createdAt, upstreamId, buckets]
+      required: [type, id, createdAt, upstreamId, buckets, headline, blurb]
       properties:
         type:
           type: string
@@ -551,10 +603,16 @@ components:
           type: array
           items:
             type: string
+        headline:
+          type: string
+        blurb:
+          type: string
+        sourceUrl:
+          type: string
     DistantFeedEvent:
       type: object
       additionalProperties: false
-      required: [type, id, createdAt, feedSourceId, sourceNativeId, title, summary, acked, buckets]
+      required: [type, id, createdAt, feedSourceId, sourceNativeId, title, summary, acked, buckets, headline, blurb]
       properties:
         type:
           type: string
@@ -577,6 +635,12 @@ components:
           type: array
           items:
             type: string
+        headline:
+          type: string
+        blurb:
+          type: string
+        sourceUrl:
+          type: string
     Bip:
       type: object
       additionalProperties: false
@@ -652,12 +716,18 @@ components:
     ReviewBip:
       type: object
       additionalProperties: false
-      required: [bipId, notes]
+      required: [bipId, understanding, applicability]
       properties:
         bipId:
           type: string
-        notes:
+        understanding:
           type: string
+        applicability:
+          type: string
+        honor:
+          type: boolean
+        implement:
+          type: boolean
     AckDistantFeed:
       type: object
       additionalProperties: false

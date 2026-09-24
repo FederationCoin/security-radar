@@ -66,14 +66,15 @@ export class IntelService {
 
   async getClock(ip: string) {
     await this.limitPublic(ip);
-    const clock = (await this.intel.getQuantumClock()) ?? this.settings.quantumClock;
-    if (!clock) {
-      throw new RadarProblem(404, 'notFound', 'Quantum clock is not configured');
+    const stored = await this.intel.getQuantumClock();
+    if (stored) {
+      return stored;
     }
-    if (!(await this.intel.getQuantumClock()) && this.settings.quantumClock) {
+    if (this.settings.quantumClock) {
       await this.intel.seedQuantumClock(this.settings.quantumClock);
+      return this.settings.quantumClock;
     }
-    return clock;
+    return undefined;
   }
 
   async listTasks(ip: string) {
@@ -104,7 +105,22 @@ export class IntelService {
     if (!bip) {
       throw new RadarProblem(404, 'notFound', 'BIP not found');
     }
-    await this.intel.reviewBip(m.id, body.bipId, body.notes, new Date().toISOString());
+    const understanding = body.understanding?.trim() ?? '';
+    const applicability = body.applicability?.trim() ?? '';
+    if (!understanding || !applicability) {
+      throw new RadarProblem(400, 'unknownField', 'understanding and applicability are required');
+    }
+    await this.intel.reviewBip(
+      m.id,
+      body.bipId,
+      {
+        understanding,
+        applicability,
+        honor: body.honor,
+        implement: body.implement,
+      },
+      new Date().toISOString(),
+    );
     return { ok: true };
   }
 

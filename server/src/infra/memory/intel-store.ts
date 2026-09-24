@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { FindPageSize } from '../../domain/constants';
+import { honorNotesFromFlags, withEventDisplay } from '../../domain/event-display';
 import { RadarProblem } from '../../domain/types';
 import type {
   BipRow,
@@ -238,8 +239,27 @@ export class MemoryIntelStore implements IntelStore {
     return this.bips.get(id);
   }
 
-  async reviewBip(maintainerId: string, bipId: string, _notes: string, _at: string): Promise<void> {
+  async reviewBip(
+    maintainerId: string,
+    bipId: string,
+    review: {
+      understanding: string;
+      applicability: string;
+      honor?: boolean;
+      implement?: boolean;
+    },
+    _at: string,
+  ): Promise<void> {
     this.bipReviews.add(`${maintainerId}:${bipId}`);
+    const existing = this.bips.get(bipId);
+    if (existing) {
+      this.bips.set(bipId, {
+        ...existing,
+        whatItDoes: review.understanding,
+        howItHitsUs: review.applicability,
+        honorNotes: honorNotesFromFlags(review.honor, review.implement),
+      });
+    }
   }
 
   async bipReviewedBy(bipId: string, maintainerId: string): Promise<boolean> {
@@ -644,18 +664,18 @@ export class MemoryIntelStore implements IntelStore {
     const buckets = await this.bucketsFor(id);
     const mc = this.missingContext.get(id);
     if (mc) {
-      return {
+      return withEventDisplay({
         type: 'MissingScanContextEvent',
         id: mc.id,
         createdAt: mc.createdAt,
         githubOwnerName: mc.githubOwnerName,
         present: await this.missingContextPresent(id),
         buckets,
-      };
+      });
     }
     const mo = this.missingOrg.get(id);
     if (mo) {
-      return {
+      return withEventDisplay({
         type: 'MissingOrgRepoEvent',
         id: mo.id,
         createdAt: mo.createdAt,
@@ -663,21 +683,21 @@ export class MemoryIntelStore implements IntelStore {
         missingName: mo.missingName,
         present: await this.missingRepoPresent(id),
         buckets,
-      };
+      });
     }
     const md = this.missingDep.get(id);
     if (md) {
-      return {
+      return withEventDisplay({
         type: 'MissingDepScanEvent',
         id: md.id,
         createdAt: md.createdAt,
         scanContextId: md.scanContextId,
         buckets,
-      };
+      });
     }
     const dv = this.depVuln.get(id);
     if (dv) {
-      return {
+      return withEventDisplay({
         type: 'DependencyVulnEvent',
         id: dv.id,
         createdAt: dv.createdAt,
@@ -687,11 +707,11 @@ export class MemoryIntelStore implements IntelStore {
         present: await this.depVulnIsPresent(id),
         taskComplete: await this.taskCompleteForEvent(id),
         buckets,
-      };
+      });
     }
     const um = this.upstreamMainline.get(id);
     if (um) {
-      return {
+      return withEventDisplay({
         type: 'UpstreamMainlineEvent',
         id: um.id,
         createdAt: um.createdAt,
@@ -700,31 +720,35 @@ export class MemoryIntelStore implements IntelStore {
         commit: um.commit,
         title: um.title,
         buckets,
-      };
+      });
     }
     const ba = this.bipArrived.get(id);
     if (ba) {
-      return {
+      const bip = await this.getBip(ba.bipId);
+      return withEventDisplay({
         type: 'BipArrivedEvent',
         id: ba.id,
         createdAt: ba.createdAt,
         bipId: ba.bipId,
+        bipNumber: bip?.number,
+        bipTitle: bip?.title,
+        bipSummary: bip?.summary,
         buckets,
-      };
+      });
     }
     const st = this.staleUpstream.get(id);
     if (st) {
-      return {
+      return withEventDisplay({
         type: 'StaleUpstreamEvent',
         id: st.id,
         createdAt: st.createdAt,
         upstreamId: st.upstreamId,
         buckets,
-      };
+      });
     }
     const di = this.distant.get(id);
     if (di) {
-      return {
+      return withEventDisplay({
         type: 'DistantFeedEvent',
         id: di.id,
         createdAt: di.createdAt,
@@ -734,7 +758,7 @@ export class MemoryIntelStore implements IntelStore {
         summary: di.summary,
         acked: await this.isDistantAcked(id),
         buckets,
-      };
+      });
     }
     return undefined;
   }

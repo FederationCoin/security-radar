@@ -22,6 +22,7 @@ import { defaultApiSettings, defaultCollectorSettings, EnvFileSecretStore, Stati
 import { RpcChainView } from './rpc/chain-view';
 import { MysqlIntelStore } from './mysql/intel-store';
 import { UnconfiguredPort } from './optional-port';
+import { HttpGitHubPort } from './http/github';
 import { HttpOsvPort } from './http/osv';
 import { HttpNostrPort, HttpRssPort, HttpXPort } from './http/feeds';
 

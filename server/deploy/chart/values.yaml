@@ -17,11 +17,10 @@ serviceAccount:
 collectorServiceAccount:
   create: false
   name: federationcoin-radar-collector
+# Secrets Manager names (JSON blobs). Do not put SecretString here.
 secret:
-  name: federationcoin-radar-api
-  fileKey: settings.json
+  name: federationcoin/radar-api
 collectorSecret:
-  name: federationcoin-radar-collector
-  fileKey: settings.json
+  name: federationcoin/radar-collector
 port: 8080
 schedule: "0 * * * *"

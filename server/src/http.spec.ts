@@ -22,7 +22,7 @@ import { MemoryChainView } from './infra/memory/chain-view';
 import { bearer, signEnvelope, testKey } from './test-support';
 import { bech32 } from 'bech32';
 
-async function appWith(allow: string[] = []) {
+async function appWith(allow: string[] = [], opts: { clock?: boolean } = {}) {
   const intel = new MemoryIntelStore();
   const rates = new MemoryRateAdapters();
   const chain = new MemoryChainView();
@@ -31,11 +31,15 @@ async function appWith(allow: string[] = []) {
     corsOrigins: ['https://radar.federationcoin.org'],
     trustedProxyHops: 1,
     maintainerAllowlist: allow,
-    quantumClock: {
-      id: 'clock-1',
-      summary: 'PQ wallet timeline',
-      milestones: [{ id: 'm1', at: '2035', label: 'CRQC watch' }],
-    },
+    ...(opts.clock === false
+      ? {}
+      : {
+          quantumClock: {
+            id: 'clock-1',
+            summary: 'PQ wallet timeline',
+            milestones: [{ id: 'm1', at: '2035', label: 'CRQC watch' }],
+          },
+        }),
   };
   const moduleRef = await Test.createTestingModule({
     controllers: [IntelController, CommandsController, DocsController, HealthController],
@@ -91,12 +95,12 @@ describe('http radar', () => {
     return { env, header: bearer(env) };
   }
 
-  it('serves health, docs, and openapi 0.1.0', async () => {
+  it('serves health, docs, and openapi 0.3.0', async () => {
     await request(app.getHttpServer()).get('/v1/healthz').expect(200);
     await request(app.getHttpServer()).get('/v1/readyz').expect(200);
     await request(app.getHttpServer()).get('/v1/docs').expect(200);
     const spec = await request(app.getHttpServer()).get('/v1/openapi.json').expect(200);
-    expect(spec.body.info.version).toBe('0.1.0');
+    expect(spec.body.info.version).toBe('0.3.0');
   });
 
   it('requires chain header and rejects dummy MAIN', async () => {
@@ -116,8 +120,8 @@ describe('http radar', () => {
     const list = await request(app.getHttpServer())
       .get('/v1/intel/events')
       .set('X-FederationCoin-Chain', 'testnet')
-      .expect(200);
-    expect(list.body.items.find((e: { id: string }) => e.id === id)).toBeUndefined();
+      .expect(204);
+    expect(list.body).toEqual({});
     await request(app.getHttpServer())
       .get(`/v1/intel/events/${id}`)
       .set('X-FederationCoin-Chain', 'testnet')
@@ -175,7 +179,7 @@ describe('http radar', () => {
       .expect(200);
     expect(got.body.present).toBe(true);
     expect(got.body.taskComplete).toBe(true);
-    const missingBip = { bipId: 'no-such', notes: 'x' };
+    const missingBip = { bipId: 'no-such', understanding: 'a', applicability: 'b' };
     const br = signed('reviewBip', missingBip);
     await request(app.getHttpServer())
       .post('/v1/bips/review')
@@ -197,7 +201,30 @@ describe('http radar', () => {
     expect(created.body.name).toBe('mill');
 
     const bip = await intel.upsertBip({ number: 341, title: 'Taproot', summary: 'witness v1' });
-    const review = { bipId: bip.id, notes: 'honor; do not implement on our chain yet' };
+    const blank = { bipId: bip.id, understanding: '  ', applicability: 'we do not implement' };
+    const blankSigned = signed('reviewBip', blank);
+    const blankRes = await request(app.getHttpServer())
+      .post('/v1/bips/review')
+      .set('X-FederationCoin-Chain', 'testnet')
+      .set('Authorization', blankSigned.header)
+      .send(blank);
+    expect(blankRes.status).toBe(400);
+    const blankApp = { bipId: bip.id, understanding: 'Schnorr', applicability: ' ' };
+    const blankAppSigned = signed('reviewBip', blankApp);
+    const blankAppRes = await request(app.getHttpServer())
+      .post('/v1/bips/review')
+      .set('X-FederationCoin-Chain', 'testnet')
+      .set('Authorization', blankAppSigned.header)
+      .send(blankApp);
+    expect(blankAppRes.status).toBe(400);
+
+    const review = {
+      bipId: bip.id,
+      understanding: 'Schnorr signatures and MAST.',
+      applicability: 'We do not implement Taproot on FederationCoin.',
+      honor: true,
+      implement: false,
+    };
     const r = signed('reviewBip', review);
     await request(app.getHttpServer())
       .post('/v1/bips/review')
@@ -205,6 +232,14 @@ describe('http radar', () => {
       .set('Authorization', r.header)
       .send(review)
       .expect(200);
+    const bips = await request(app.getHttpServer())
+      .get('/v1/intel/bips')
+      .set('X-FederationCoin-Chain', 'testnet')
+      .expect(200);
+    const row = bips.body.items.find((b: { id: string }) => b.id === bip.id);
+    expect(row.whatItDoes).toBe('Schnorr signatures and MAST.');
+    expect(row.howItHitsUs).toBe('We do not implement Taproot on FederationCoin.');
+    expect(row.honorNotes).toBe('We honor this BIP.');
 
     const um = await intel.upsertUpstreamMainlineEvent(created.body.id, 'up-1', 'abc', 'consensus tweak');
     const human = { eventId: um, writeup: 'we keep our nBits' };
@@ -317,6 +352,53 @@ describe('http radar', () => {
       .set('Authorization', first.header)
       .send(accept)
       .expect(400);
+  });
+
+  it('returns 204 when the URI is right and there is no representation', async () => {
+    const empty = await appWith([wallet], { clock: false });
+    const chainHdr = { 'X-FederationCoin-Chain': 'testnet' };
+    await request(empty.app.getHttpServer()).get('/v1/intel/events').set(chainHdr).expect(204);
+    await request(empty.app.getHttpServer()).get('/v1/intel/bips').set(chainHdr).expect(204);
+    await request(empty.app.getHttpServer()).get('/v1/intel/tasks').set(chainHdr).expect(204);
+    await request(empty.app.getHttpServer()).get('/v1/intel/quantum-clock').set(chainHdr).expect(204);
+    await request(empty.app.getHttpServer()).get('/v1/intel/events/missing').set(chainHdr).expect(404);
+    const env = signEnvelope({
+      priv,
+      wallet,
+      chain: 'testnet',
+      commandKind: 'listUnackedDistant',
+      command: { commandKind: 'listUnackedDistant' },
+      signingBlockHash: empty.chain.state.hash,
+      signingBlockHeight: empty.chain.state.height,
+    });
+    await request(empty.app.getHttpServer())
+      .get('/v1/intel/distant-unacked')
+      .set(chainHdr)
+      .set('Authorization', bearer(env))
+      .expect(204);
+    const bip = await empty.intel.upsertBip({ number: 1, title: 'P2SH', summary: 'p2sh' });
+    const eventId = await empty.intel.upsertBipArrivedEvent(bip.id);
+    await request(empty.app.getHttpServer()).get('/v1/intel/bips').set(chainHdr).expect(200);
+    const events = await request(empty.app.getHttpServer()).get('/v1/intel/events').set(chainHdr).expect(200);
+    const arrived = events.body.items.find((e: { id: string }) => e.id === eventId);
+    expect(arrived.headline).toBe('BIP 1 — P2SH');
+    expect(arrived.blurb).toBe('p2sh');
+    expect(arrived.sourceUrl).toContain('bip-0001');
+    const one = await request(empty.app.getHttpServer())
+      .get(`/v1/intel/events/${eventId}`)
+      .set(chainHdr)
+      .expect(200);
+    expect(one.body.headline).toBe('BIP 1 — P2SH');
+    await request(empty.app.getHttpServer()).get('/v1/intel/events/missing').set(chainHdr).expect(404);
+    await empty.intel.seedQuantumClock({
+      id: 'c',
+      summary: 'pq',
+      milestones: [{ id: 'm', at: '2035', label: 'watch' }],
+    });
+    await request(empty.app.getHttpServer()).get('/v1/intel/quantum-clock').set(chainHdr).expect(200);
+    await empty.intel.insertTask('review', 'evt');
+    await request(empty.app.getHttpServer()).get('/v1/intel/tasks').set(chainHdr).expect(200);
+    await empty.app.close();
   });
 
   it('readyz is 503 when the store ping fails', async () => {

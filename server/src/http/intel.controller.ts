@@ -5,6 +5,7 @@ import { HumanAssessmentAdapter } from '../intel/human-assessment';
 import { ChainHeaderGuard } from './chain.guard';
 import { SigningEnvelopeGuard } from './envelope.guard';
 import { Chain, ClientIp, Envelope } from './params';
+import { sendCollection, sendRepresentation } from './no-content';
 import type { ChainId } from '../domain/constants';
 import type {
   AcceptTask,
@@ -25,8 +26,8 @@ export class IntelController {
 
   @Get('intel/events')
   @UseGuards(ChainHeaderGuard)
-  listEvents(@ClientIp() ip: string, @Query('cursor') cursor?: string) {
-    return this.intel.listEvents(ip, cursor);
+  async listEvents(@ClientIp() ip: string, @Res({ passthrough: true }) res: Response, @Query('cursor') cursor?: string) {
+    return sendCollection(res, await this.intel.listEvents(ip, cursor));
   }
 
   @Get('intel/events/:id')
@@ -37,26 +38,26 @@ export class IntelController {
 
   @Get('intel/bips')
   @UseGuards(ChainHeaderGuard)
-  listBips(@ClientIp() ip: string) {
-    return this.intel.listBips(ip);
+  async listBips(@ClientIp() ip: string, @Res({ passthrough: true }) res: Response) {
+    return sendCollection(res, await this.intel.listBips(ip));
   }
 
   @Get('intel/quantum-clock')
   @UseGuards(ChainHeaderGuard)
-  getClock(@ClientIp() ip: string) {
-    return this.intel.getClock(ip);
+  async getClock(@ClientIp() ip: string, @Res({ passthrough: true }) res: Response) {
+    return sendRepresentation(res, await this.intel.getClock(ip));
   }
 
   @Get('intel/tasks')
   @UseGuards(ChainHeaderGuard)
-  listTasks(@ClientIp() ip: string) {
-    return this.intel.listTasks(ip);
+  async listTasks(@ClientIp() ip: string, @Res({ passthrough: true }) res: Response) {
+    return sendCollection(res, await this.intel.listTasks(ip));
   }
 
   @Get('intel/distant-unacked')
   @UseGuards(ChainHeaderGuard, SigningEnvelopeGuard)
-  listUnacked(@Chain() chain: ChainId, @Envelope() env: SigningEnvelope) {
-    return this.intel.listUnackedDistant(chain, env);
+  async listUnacked(@Chain() chain: ChainId, @Envelope() env: SigningEnvelope, @Res({ passthrough: true }) res: Response) {
+    return sendCollection(res, await this.intel.listUnackedDistant(chain, env));
   }
 }
 

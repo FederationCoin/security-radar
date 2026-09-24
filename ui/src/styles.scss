@@ -1,0 +1,122 @@
+@use '@angular/material' as mat;
+
+html {
+  color-scheme: dark;
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$yellow-palette,
+        tertiary: mat.$red-palette,
+        theme-type: dark,
+      ),
+      typography: Roboto,
+      density: 0,
+    )
+  );
+}
+
+:root {
+  --mat-sys-surface: #0e1824;
+  --mat-sys-on-surface: #e8e4d9;
+  --mat-sys-primary: #c9a85a;
+  --mat-sys-on-primary: #0e1824;
+  --mat-sys-error: #b33a2b;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: #0e1824;
+  color: #e8e4d9;
+  font-family: Roboto, ui-sans-serif, system-ui, sans-serif;
+}
+
+.radar-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.radar-bar {
+  background: #0e1824;
+  color: #e8e4d9;
+  border-bottom: 1px solid #c9a85a;
+}
+
+.radar-bar .brand {
+  color: #c9a85a;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.radar-bar .spacer {
+  flex: 1 1 auto;
+}
+
+.radar-bar .account svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+main {
+  flex: 1 0 auto;
+  padding: 1.5rem;
+  max-width: 72rem;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+footer {
+  background: #0a121c;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  justify-content: center;
+  border-top: 1px solid #1c2836;
+}
+
+footer a {
+  color: #c9a85a;
+}
+
+.hero {
+  margin-bottom: 1.5rem;
+}
+
+.hero img {
+  width: 100%;
+  max-height: 16rem;
+  object-fit: cover;
+  object-position: center top;
+  border: 1px solid #c9a85a;
+}
+
+.lede {
+  max-width: 40rem;
+  color: #e8e4d9;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.intel-card {
+  cursor: pointer;
+}
+
+.full-field {
+  width: 100%;
+}
+
+.maintainer-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #c9a85a;
+  background: #121c28;
+}

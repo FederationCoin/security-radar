@@ -1,25 +1,42 @@
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { MatCard, MatCardActions, MatCardContent, MatCardHeader, MatCardSubtitle, MatCardTitle } from '@angular/material/card';
+import { MatAnchor, MatButton } from '@angular/material/button';
 import { RadarApi, type PublicEvent } from '../radar.api';
+import { kindLabel } from '../kind-label';
 
 @Component({
   selector: 'app-event',
+  imports: [MatCard, MatCardHeader, MatCardTitle, MatCardSubtitle, MatCardContent, MatCardActions, MatButton, MatAnchor],
   template: `
-    <h1>Event</h1>
     @if (error()) {
       <p class="toast">{{ error() }}</p>
     }
     @if (ev()) {
-      <p>{{ ev()!.type }}</p>
-      <p>{{ ev()!.summary || ev()!.title || ev()!.id }}</p>
-      @if (ev()!.type === 'DistantFeedEvent') {
-        <button type="button" (click)="ack()">Ack distant feed</button>
+      <mat-card>
+        <mat-card-header>
+          <mat-card-subtitle>{{ kindOf(ev()!) }}</mat-card-subtitle>
+          <mat-card-title>{{ ev()!.headline || 'Public intel' }}</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p>{{ ev()!.blurb || ev()!.summary || ev()!.title || 'A public radar event.' }}</p>
+        </mat-card-content>
+        <mat-card-actions>
+          @if (ev()!.sourceUrl) {
+            <a mat-button [href]="ev()!.sourceUrl" target="_blank" rel="noopener noreferrer">Source</a>
+          }
+        </mat-card-actions>
+      </mat-card>
+      @if (ev()!.type === 'DistantFeedEvent' && api.signedIn()) {
+        <div class="maintainer-panel">
+          <button mat-flat-button type="button" (click)="ack()">Ack distant feed</button>
+        </div>
       }
     }
   `,
 })
 export class EventPage {
-  private readonly api = inject(RadarApi);
+  readonly api = inject(RadarApi);
   private readonly route = inject(ActivatedRoute);
   readonly ev = signal<PublicEvent | undefined>(undefined);
   readonly error = signal('');
@@ -30,6 +47,10 @@ export class EventPage {
       .getEvent(id)
       .then((e) => this.ev.set(e))
       .catch(() => this.error.set('Event not found.'));
+  }
+
+  kindOf(e: PublicEvent): string {
+    return kindLabel(e.type);
   }
 
   ack(): void {

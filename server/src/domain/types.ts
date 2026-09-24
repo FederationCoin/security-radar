@@ -73,7 +73,13 @@ export class RadarProblem extends Error {
 
 export type AcceptTask = { taskId: string };
 export type CompleteTask = { taskId: string };
-export type ReviewBip = { bipId: string; notes: string };
+export type ReviewBip = {
+  bipId: string;
+  understanding: string;
+  applicability: string;
+  honor?: boolean;
+  implement?: boolean;
+};
 export type AckDistantFeed = { eventId: string };
 export type CreateScanContext = { name: string; githubOwner: string; githubName: string };
 export type RecordHumanAssessment = { eventId: string; writeup: string };
@@ -112,6 +118,12 @@ export type MergeIngestRunRow = {
 export type QuantumMilestone = { id: string; at: string; label: string };
 export type QuantumClockPublic = { id: string; summary: string; milestones: QuantumMilestone[] };
 
+export type EventDisplay = {
+  headline: string;
+  blurb: string;
+  sourceUrl?: string;
+};
+
 export type DependencyVulnEventDto = {
   type: 'DependencyVulnEvent';
   id: string;
@@ -122,7 +134,7 @@ export type DependencyVulnEventDto = {
   present: boolean;
   taskComplete: boolean;
   buckets: string[];
-};
+} & EventDisplay;
 export type MissingScanContextEventDto = {
   type: 'MissingScanContextEvent';
   id: string;
@@ -130,7 +142,7 @@ export type MissingScanContextEventDto = {
   githubOwnerName: string;
   present: boolean;
   buckets: string[];
-};
+} & EventDisplay;
 export type MissingOrgRepoEventDto = {
   type: 'MissingOrgRepoEvent';
   id: string;
@@ -139,14 +151,14 @@ export type MissingOrgRepoEventDto = {
   missingName: string;
   present: boolean;
   buckets: string[];
-};
+} & EventDisplay;
 export type MissingDepScanEventDto = {
   type: 'MissingDepScanEvent';
   id: string;
   createdAt: string;
   scanContextId: string;
   buckets: string[];
-};
+} & EventDisplay;
 export type UpstreamMainlineEventDto = {
   type: 'UpstreamMainlineEvent';
   id: string;
@@ -156,21 +168,24 @@ export type UpstreamMainlineEventDto = {
   commit: string;
   title: string;
   buckets: string[];
-};
+} & EventDisplay;
 export type BipArrivedEventDto = {
   type: 'BipArrivedEvent';
   id: string;
   createdAt: string;
   bipId: string;
+  bipNumber?: number;
+  bipTitle?: string;
+  bipSummary?: string;
   buckets: string[];
-};
+} & EventDisplay;
 export type StaleUpstreamEventDto = {
   type: 'StaleUpstreamEvent';
   id: string;
   createdAt: string;
   upstreamId: string;
   buckets: string[];
-};
+} & EventDisplay;
 export type DistantFeedEventDto = {
   type: 'DistantFeedEvent';
   id: string;
@@ -181,7 +196,7 @@ export type DistantFeedEventDto = {
   summary: string;
   acked: boolean;
   buckets: string[];
-};
+} & EventDisplay;
 
 export type PublicEventDto =
   | DependencyVulnEventDto

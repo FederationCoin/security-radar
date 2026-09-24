@@ -31,7 +31,6 @@ export default defineConfig({
         'src/infra/mysql/**',
         'src/infra/rpc/**',
         'src/infra/http/**',
-        'src/infra/secrets/aws-sm.ts',
         'src/ports/**',
         'src/**/*.spec.ts',
         'src/test-support.ts',

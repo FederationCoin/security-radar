@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
@@ -14,6 +14,9 @@ export type PublicEvent = {
   type: string;
   id: string;
   createdAt: string;
+  headline?: string;
+  blurb?: string;
+  sourceUrl?: string;
   title?: string;
   summary?: string;
   present?: boolean;
@@ -21,10 +24,38 @@ export type PublicEvent = {
   taskComplete?: boolean;
 };
 
+export type Bip = {
+  id: string;
+  number: number;
+  title: string;
+  summary: string;
+  whatItDoes?: string;
+  howItHitsUs?: string;
+  honorNotes?: string;
+  ethosNotes?: string;
+};
+
+export type RadarTask = { id: string; title: string; complete: boolean };
+
+export type ReviewBipBody = {
+  bipId: string;
+  understanding: string;
+  applicability: string;
+  honor: boolean;
+  implement: boolean;
+};
+
+export type QuantumClock = {
+  id: string;
+  summary: string;
+  milestones: Array<{ id: string; at: string; label: string }>;
+};
+
 @Injectable({ providedIn: 'root' })
 export class RadarApi {
   readonly toast = signal('');
   readonly signature = signal('');
+  readonly signedIn = computed(() => this.signature().trim().length > 0);
 
   constructor(private readonly http: HttpClient) {}
 
@@ -36,57 +67,75 @@ export class RadarApi {
     return h;
   }
 
+  private async getOptional<T>(url: string): Promise<T | undefined> {
+    const resp = await firstValueFrom(this.http.get<T>(url, { headers: this.headers(false), observe: 'response' }));
+    if (resp.status === 204 || resp.body == null) {
+      return undefined;
+    }
+    return resp.body;
+  }
+
+  private async getItems<T>(url: string): Promise<T[]> {
+    const body = await this.getOptional<{ items: T[] }>(url);
+    return body?.items ?? [];
+  }
+
   async listEvents(): Promise<PublicEvent[]> {
-    const body = await firstValueFrom(
-      this.http.get<{ items: PublicEvent[] }>(`${ApiBase}/intel/events`, { headers: this.headers(false) }),
-    );
-    return body.items;
+    return this.getItems<PublicEvent>(`${ApiBase}/intel/events`);
   }
 
   async getEvent(id: string): Promise<PublicEvent> {
     return firstValueFrom(this.http.get<PublicEvent>(`${ApiBase}/intel/events/${id}`, { headers: this.headers(false) }));
   }
 
-  async listBips(): Promise<Array<{ id: string; number: number; title: string; summary: string }>> {
-    const body = await firstValueFrom(
-      this.http.get<{ items: Array<{ id: string; number: number; title: string; summary: string }> }>(
-        `${ApiBase}/intel/bips`,
-        { headers: this.headers(false) },
-      ),
-    );
-    return body.items;
+  async listBips(): Promise<Bip[]> {
+    return this.getItems<Bip>(`${ApiBase}/intel/bips`);
   }
 
-  async getClock(): Promise<{ id: string; summary: string; milestones: Array<{ id: string; at: string; label: string }> }> {
-    return firstValueFrom(
-      this.http.get<{ id: string; summary: string; milestones: Array<{ id: string; at: string; label: string }> }>(
-        `${ApiBase}/intel/quantum-clock`,
-        { headers: this.headers(false) },
-      ),
-    );
+  async getClock(): Promise<QuantumClock | undefined> {
+    return this.getOptional<QuantumClock>(`${ApiBase}/intel/quantum-clock`);
   }
 
-  async listTasks(): Promise<Array<{ id: string; title: string; complete: boolean }>> {
-    const body = await firstValueFrom(
-      this.http.get<{ items: Array<{ id: string; title: string; complete: boolean }> }>(`${ApiBase}/intel/tasks`, {
-        headers: this.headers(false),
-      }),
-    );
-    return body.items;
+  async listTasks(): Promise<RadarTask[]> {
+    return this.getItems<RadarTask>(`${ApiBase}/intel/tasks`);
   }
 
   async ack(eventId: string): Promise<void> {
-    if (!this.signature()) {
+    await this.signedPost(`${ApiBase}/feeds/ack`, { eventId }, 'Distant feed acked.', 'Ack failed. Taproot is rejected; signer must be a maintainer.');
+  }
+
+  async acceptTask(taskId: string): Promise<void> {
+    await this.signedPost(`${ApiBase}/tasks/accept`, { taskId }, 'Task accepted.', 'Accept failed. Taproot is rejected; signer must be a maintainer.');
+  }
+
+  async completeTask(taskId: string): Promise<void> {
+    await this.signedPost(
+      `${ApiBase}/tasks/complete`,
+      { taskId },
+      'Task completed. Complete does not clear a vuln flag.',
+      'Complete failed. Taproot is rejected; signer must be a maintainer.',
+    );
+  }
+
+  async reviewBip(body: ReviewBipBody): Promise<void> {
+    await this.signedPost(
+      `${ApiBase}/bips/review`,
+      body,
+      'BIP review stored.',
+      'Review failed. Taproot is rejected; signer must be a maintainer.',
+    );
+  }
+
+  private async signedPost(url: string, body: object, ok: string, fail: string): Promise<void> {
+    if (!this.signedIn()) {
       this.toast.set('Paste a Sparrow compact signature first.');
       return;
     }
     try {
-      await firstValueFrom(
-        this.http.post(`${ApiBase}/feeds/ack`, { eventId }, { headers: this.headers(true) }),
-      );
-      this.toast.set('Distant feed acked.');
+      await firstValueFrom(this.http.post(url, body, { headers: this.headers(true) }));
+      this.toast.set(ok);
     } catch {
-      this.toast.set('Ack failed. Taproot is rejected; signer must be a maintainer.');
+      this.toast.set(fail);
     }
   }
 }
