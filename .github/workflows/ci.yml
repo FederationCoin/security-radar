@@ -93,3 +93,5 @@ jobs:
           base: server/openapi/radar-base.yaml
           revision: server/openapi/radar.yaml
           fail-on: ERR
+          # ReviewBip replaced notes with two required fields before any client shipped.
+          err-ignore: 'POST /v1/bips/review added the new required request property'
