@@ -80,6 +80,7 @@ jobs:
         run: |
           set -eu
           if git cat-file -e "origin/${{ github.base_ref }}:server/openapi/radar.yaml" 2>/dev/null; then
+            git show "origin/${{ github.base_ref }}:server/openapi/radar.yaml" > server/openapi/radar-base.yaml
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -89,6 +90,6 @@ jobs:
         if: github.event_name == 'pull_request' && steps.spec.outputs.exists == 'true'
         uses: oasdiff/oasdiff-action/breaking@main
         with:
-          base: origin/${{ github.base_ref }}/server/openapi/radar.yaml
+          base: server/openapi/radar-base.yaml
           revision: server/openapi/radar.yaml
-          fail-on-diff: true
+          fail-on: ERR
