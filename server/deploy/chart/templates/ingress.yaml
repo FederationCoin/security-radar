@@ -79,3 +79,10 @@ spec:
                 name: radar
                 port:
                   number: 80
+          - path: /v1/sign-context
+            pathType: Exact
+            backend:
+              service:
+                name: radar
+                port:
+                  number: 80
